@@ -75,8 +75,15 @@ func compareRenders(_ a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> Comparison 
             if opaqueA || opaqueB { either += 1 }
             if p[3] > 0.95 && q[3] > 0.95 {
                 // Un-premultiplied RGB difference.
-                let d = (0..<3).map { Double(abs(p[$0] / p[3] - q[$0] / q[3])) }.reduce(0, +) / 3
-                interior += d; interiorCount += 1
+                let alphaA = Double(p[3]), alphaB = Double(q[3])
+                var d = 0.0
+                for channel in 0..<3 {
+                    let ca = Double(p[channel]) / alphaA
+                    let cb = Double(q[channel]) / alphaB
+                    d += abs(ca - cb)
+                }
+                interior += d / 3
+                interiorCount += 1
             }
             row.append(shades[min(shades.count - 1, Int(worst * Double(shades.count)))])
         }
