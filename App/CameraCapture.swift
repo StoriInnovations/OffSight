@@ -36,12 +36,14 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
     }
 
-    /// Native size of the camera used as the live source: its largest mode that supports 30 fps.
-    /// OffSight Camera advertises exactly this size, so live frames pass through unscaled.
+    /// Native size of the camera used as the live source, captured at 30 fps: its largest 16:9 mode,
+    /// else its largest 4:3 mode, else its largest mode of any shape. (A MacBook Pro camera's largest
+    /// mode is a square Center Stage mode, which meeting apps should not get.) OffSight Camera
+    /// advertises exactly this size, so live frames pass through unscaled.
     private(set) lazy var nativeFormat: Dimensions? = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }
 
     private static func nativeMode(of device: AVCaptureDevice) -> (format: AVCaptureDevice.Format, dimensions: Dimensions)? {
-        device.formats
+        let candidates = device.formats
             .filter { format in
                 format.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= 29.9 && $0.minFrameRate <= 30.1 }
             }
@@ -50,7 +52,22 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 return (format: format, dimensions: Dimensions(width: Int(size.width), height: Int(size.height)))
             }
             .filter { OffSightConstants.isAcceptableFormat($0.dimensions) }
-            .max { $0.dimensions.width * $0.dimensions.height < $1.dimensions.width * $1.dimensions.height }
+
+        typealias Mode = (format: AVCaptureDevice.Format, dimensions: Dimensions)
+        func largest(_ modes: [Mode], aspect: Double? = nil) -> Mode? {
+            var best: Mode?
+            for mode in modes {
+                let width = mode.dimensions.width, height = mode.dimensions.height
+                if let aspect, abs(Double(width) / Double(height) - aspect) >= 0.01 { continue }
+                if best == nil || width * height > best!.dimensions.width * best!.dimensions.height {
+                    best = mode
+                }
+            }
+            return best
+        }
+        return largest(candidates, aspect: 16.0 / 9.0)
+            ?? largest(candidates, aspect: 4.0 / 3.0)
+            ?? largest(candidates)
     }
 
     /// Built-in camera first (initial scope), then any other physical camera.

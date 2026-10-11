@@ -30,6 +30,9 @@ final class SinkFeeder {
     private var placeholderPool: PoolCache
     private var placeholderMasters: [Dimensions: CVPixelBuffer] = [:]
     private var placeholderTimer: DispatchSourceTimer?
+    /// Used only on the placeholder queue (transfer sessions are not shared across queues).
+    private var placeholderTransfer: VTPixelTransferSession?
+    private var placeholderFrameCounter: UInt64 = 0
     private let placeholderQueue = DispatchQueue(label: "com.storiinnovations.offsight.placeholder", qos: .userInteractive)
     private(set) var framesSent: UInt64 = 0
     private(set) var framesDropped: UInt64 = 0
@@ -44,6 +47,10 @@ final class SinkFeeder {
            let session {
             VTSessionSetProperty(session, key: kVTPixelTransferPropertyKey_ScalingMode, value: kVTScalingMode_Letterbox)
             transferSession = session
+        }
+        var placeholderSession: VTPixelTransferSession?
+        if VTPixelTransferSessionCreate(allocator: kCFAllocatorDefault, pixelTransferSessionOut: &placeholderSession) == noErr {
+            placeholderTransfer = placeholderSession
         }
     }
 
@@ -87,17 +94,41 @@ final class SinkFeeder {
     // MARK: Placeholder
 
     /// Placeholder queue, 30 fps while needed. Never touches camera frames.
+    ///
+    /// Produced exactly like a live frame (hardware transfer into a fresh pool buffer, attachments
+    /// removed), and each frame differs from the last by one invisible pixel: Photo Booth and Teams
+    /// show nothing for a stream of byte-identical frames, as if the camera had stalled.
     private func sendPlaceholderFrame() {
         lock.lock()
         let current = config
         lock.unlock()
         guard let current, current.sendPlaceholder, !current.sendLive else { return }
         guard let master = placeholderMaster(for: current.format),
-              let output = placeholderPool.buffer(for: current.format),
-              PlaceholderRendering.copyPixels(from: master, to: output) else { return }
+              let output = placeholderPool.buffer(for: current.format) else { return }
+        if let placeholderTransfer,
+           VTPixelTransferSessionTransferImage(placeholderTransfer, from: master, to: output) == noErr {
+            // Same path as live frames.
+        } else if !PlaceholderRendering.copyPixels(from: master, to: output) {
+            return
+        }
+        CVBufferRemoveAllAttachments(output)
+        placeholderFrameCounter &+= 1
+        Self.nudgeCornerPixel(output, frame: placeholderFrameCounter)
         send(output, tag: FrameTag(kind: .placeholder, epoch: current.epoch, generation: current.generation)) { sent in
             if sent { self.placeholderFramesSent += 1 }
         }
+    }
+
+    /// Alternates the blue value of the bottom-right pixel by one step: imperceptible, but every
+    /// frame is different.
+    private static func nudgeCornerPixel(_ buffer: CVPixelBuffer, frame: UInt64) {
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return }
+        let offset = (CVPixelBufferGetHeight(buffer) - 1) * CVPixelBufferGetBytesPerRow(buffer)
+            + (CVPixelBufferGetWidth(buffer) - 1) * 4 // BGRA: blue first
+        let pixel = base.assumingMemoryBound(to: UInt8.self) + offset
+        pixel.pointee = (pixel.pointee & 0xFE) | UInt8(frame & 1)
     }
 
     private func placeholderMaster(for format: Dimensions) -> CVPixelBuffer? {
