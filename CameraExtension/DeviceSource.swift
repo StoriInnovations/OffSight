@@ -178,7 +178,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
     }
 
     private func publishSnapshot() {
-        let state = CMIOExtensionPropertyState(value: snapshotJSON() as NSString)
+        let state = CMIOExtensionPropertyState<AnyObject>(value: snapshotJSON() as NSString)
         sourceStream.stream.notifyPropertiesChanged([SourceStreamSource.snapshotProperty: state])
     }
 
