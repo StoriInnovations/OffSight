@@ -19,6 +19,8 @@ final class ExtensionLink {
     private let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "link")
     private let snapshotSelector = fourCharCode(OffSightConstants.snapshotPropertyFourCC)
     private var pollTimer: Timer?
+    private var pollCount = 0
+    private(set) var sinkStartAttempts = 0
     private var devicesListenerInstalled = false
 
     private let sinkLock = NSLock()
@@ -32,10 +34,12 @@ final class ExtensionLink {
         // Fallback poll: spike S2 checks whether property notifications alone are reliable.
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             guard let self else { return }
+            self.pollCount += 1
             if self.deviceID == nil {
                 self.refreshDevice()
             } else {
                 self.readSnapshot()
+                self.retrySinkIfNeeded()
             }
         }
     }
@@ -104,8 +108,20 @@ final class ExtensionLink {
 
     // MARK: Sink
 
+    /// Every 5 s, restart the sink if it failed to start or the extension does not see it connected.
+    private func retrySinkIfNeeded() {
+        guard pollCount % 20 == 0 else { return }
+        let failed = sinkStartStatus.map { $0 != noErr } ?? true
+        let notConnected = latestSnapshot.map { !$0.sinkConnected } ?? false
+        guard failed || notConnected else { return }
+        log.info("Retrying sink start (status \(self.sinkStartStatus ?? 0), connected \(!notConnected))")
+        stopSink()
+        startSink()
+    }
+
     private func startSink() {
         guard let deviceID, let sinkStreamID else { return }
+        sinkStartAttempts += 1
         var queue: Unmanaged<CMSimpleQueue>?
         let copyStatus = CMIOStreamCopyBufferQueue(sinkStreamID, { _, _, _ in }, nil, &queue)
         guard copyStatus == noErr, let queue else {

@@ -1,10 +1,15 @@
+import Darwin
 import Foundation
 import OffSightCore
 import os
 import Security
 
 /// Decides whether a process may write frames into the sink stream (threat T3, NFR-04):
-/// it must be signed with OffSight.app's bundle ID by the project's Apple team.
+/// it must be OffSight.app, signed with its bundle ID by the project's Apple team.
+///
+/// Spike S5 found that looking up the running process by pid (`SecCodeCopyGuestWithAttributes`)
+/// is refused inside the extension's sandbox, so the signature of the process's executable on
+/// disk is checked as a second strategy.
 enum SinkAuthenticator {
     struct Result {
         let ok: Bool
@@ -20,33 +25,66 @@ enum SinkAuthenticator {
             log.fault("OffSightAppBundleID / OffSightTeamID missing from Info.plist")
             return Result(ok: false, mode: "misconfigured")
         }
+        var requirement: SecRequirement?
         let requirementText = "anchor apple generic and identifier \"\(appBundleID)\" "
             + "and certificate leaf[subject.OU] = \"\(teamID)\""
+        guard SecRequirementCreateWithString(requirementText as CFString, SecCSFlags(), &requirement) == errSecSuccess,
+              let requirement else {
+            return Result(ok: false, mode: "requirement-invalid")
+        }
+        let sid = signingID ?? "nil"
 
+        // Strategy 1: the running process.
         var code: SecCode?
         let attributes = [kSecGuestAttributePid: NSNumber(value: pid)] as CFDictionary
         let guestStatus = SecCodeCopyGuestWithAttributes(nil, attributes, SecCSFlags(), &code)
-
-        var requirement: SecRequirement?
-        let requirementStatus = SecRequirementCreateWithString(requirementText as CFString, SecCSFlags(), &requirement)
-
-        if guestStatus == errSecSuccess, requirementStatus == errSecSuccess, let code, let requirement {
+        if guestStatus == errSecSuccess, let code {
             let validity = SecCodeCheckValidity(code, SecCSFlags(), requirement)
             if validity == errSecSuccess {
-                return Result(ok: true, mode: "codesign")
+                return Result(ok: true, mode: "codesign-process")
             }
             log.error("Sink client pid \(pid) failed the code requirement (status \(validity))")
-            return Result(ok: false, mode: "codesign-mismatch(\(validity))")
+            return Result(ok: false, mode: "codesign-mismatch(\(validity), signingID=\(sid))")
         }
 
-        log.error("Code-signing check unavailable (guest \(guestStatus), requirement \(requirementStatus))")
+        // Strategy 2: the executable on disk that this pid is running. An attacker cannot make
+        // its own pid report OffSight's executable without actually running OffSight's code.
+        var staticStatus: OSStatus = errSecSuccess
+        if let bundleURL = appBundleURL(of: pid) {
+            var staticCode: SecStaticCode?
+            staticStatus = SecStaticCodeCreateWithPath(bundleURL as CFURL, SecCSFlags(), &staticCode)
+            if staticStatus == errSecSuccess, let staticCode {
+                staticStatus = SecStaticCodeCheckValidity(staticCode, SecCSFlags(), requirement)
+                if staticStatus == errSecSuccess, signingID == nil || signingID == appBundleID {
+                    return Result(ok: true, mode: "codesign-path(guest=\(guestStatus))")
+                }
+                log.error("Sink client pid \(pid) failed the on-disk check (status \(staticStatus), signingID \(sid, privacy: .public))")
+                return Result(ok: false, mode: "codesign-path-mismatch(\(staticStatus), signingID=\(sid))")
+            }
+        } else {
+            staticStatus = -1
+        }
+
+        log.error("Code-signing checks unavailable (guest \(guestStatus), path \(staticStatus), signingID \(sid, privacy: .public))")
         #if DEBUG
-        // Development builds only: fall back to the signing ID so the spike can continue while
-        // spike S5 investigates. Release builds always fail closed.
+        // Development builds only: fall back to the signing ID so testing can continue.
+        // Release builds always fail closed.
         if signingID == appBundleID {
-            return Result(ok: true, mode: "signingID-fallback(debug,guest=\(guestStatus))")
+            return Result(ok: true, mode: "signingID-fallback(debug,guest=\(guestStatus),path=\(staticStatus))")
         }
         #endif
-        return Result(ok: false, mode: "codesign-unavailable(guest=\(guestStatus))")
+        return Result(ok: false, mode: "codesign-unavailable(guest=\(guestStatus),path=\(staticStatus),signingID=\(sid))")
+    }
+
+    /// The outermost .app bundle containing the executable of `pid`.
+    private static func appBundleURL(of pid: Int32) -> URL? {
+        var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+        guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
+        var url = URL(fileURLWithPath: "/")
+        for component in URL(fileURLWithPath: String(cString: buffer)).pathComponents.dropFirst() {
+            url.appendPathComponent(component)
+            if component.hasSuffix(".app") { return url }
+        }
+        return nil
     }
 }
