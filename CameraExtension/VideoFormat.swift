@@ -7,42 +7,73 @@ import ImageIO
 import OffSightCore
 import os
 
-/// One output format plus its pre-rendered placeholder frames (UR-25, UR-28).
+/// One output format plus its placeholder (UR-25, UR-28).
 ///
-/// The placeholder is rendered once per format and cached, as a small ring of identical buffers
-/// sent in turn: some clients keep the previous frame's buffer and may ignore a frame that reuses it.
+/// The placeholder is rendered once per format and cached. Each frame is then copied into a fresh
+/// buffer from a pool, exactly like live frames arrive: Photo Booth and Teams show nothing when
+/// the same buffers are re-sent, although QuickTime does.
 final class VideoFormat {
-    private static let ringSize = 3
-
     let dimensions: Dimensions
     let streamFormat: CMIOExtensionStreamFormat
     /// The description advertised to clients. Every frame sent is stamped with exactly this one:
     /// stricter clients (Photo Booth, Teams) drop frames whose description differs from it.
     let formatDescription: CMFormatDescription
-    private let placeholders: [CVPixelBuffer]
-    private var nextPlaceholder = 0
+    private let master: CVPixelBuffer
+    private let pool: CVPixelBufferPool
 
     init?(dimensions: Dimensions) {
         var description: CMFormatDescription?
         CMVideoFormatDescriptionCreate(allocator: kCFAllocatorDefault, codecType: kCVPixelFormatType_32BGRA,
                                        width: Int32(dimensions.width), height: Int32(dimensions.height),
                                        extensions: nil, formatDescriptionOut: &description)
-        let placeholders = (0..<Self.ringSize).compactMap { _ in PlaceholderRenderer.render(dimensions) }
-        guard let description, placeholders.count == Self.ringSize else { return nil }
+        // Same buffer attributes as the live frames the app sends.
+        let poolAttributes: [CFString: Any] = [
+            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferWidthKey: dimensions.width,
+            kCVPixelBufferHeightKey: dimensions.height,
+            kCVPixelBufferIOSurfacePropertiesKey: [String: Any]() as CFDictionary,
+        ]
+        var pool: CVPixelBufferPool?
+        CVPixelBufferPoolCreate(kCFAllocatorDefault, [kCVPixelBufferPoolMinimumBufferCountKey: 4] as CFDictionary,
+                                poolAttributes as CFDictionary, &pool)
+        guard let description, let pool, let master = PlaceholderRenderer.render(dimensions) else { return nil }
 
         let duration = CMTime(value: 1, timescale: OffSightConstants.frameRate)
         self.dimensions = dimensions
         self.formatDescription = description
         self.streamFormat = CMIOExtensionStreamFormat(formatDescription: description, maxFrameDuration: duration,
                                                       minFrameDuration: duration, validFrameDurations: nil)
-        self.placeholders = placeholders
+        self.master = master
+        self.pool = pool
     }
 
     /// Called on the extension's output timer, under the device lock.
     func makePlaceholderSampleBuffer() -> CMSampleBuffer? {
-        let buffer = placeholders[nextPlaceholder]
-        nextPlaceholder = (nextPlaceholder + 1) % placeholders.count
-        return makeSampleBuffer(wrapping: buffer)
+        var output: CVPixelBuffer?
+        guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &output) == kCVReturnSuccess,
+              let output, Self.copyPixels(from: master, to: output) else { return nil }
+        return makeSampleBuffer(wrapping: output)
+    }
+
+    /// Row-by-row copy (row strides can differ between the cached master and pool buffers).
+    private static func copyPixels(from source: CVPixelBuffer, to destination: CVPixelBuffer) -> Bool {
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(destination, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(destination, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+        guard let from = CVPixelBufferGetBaseAddress(source), let to = CVPixelBufferGetBaseAddress(destination) else {
+            return false
+        }
+        let fromStride = CVPixelBufferGetBytesPerRow(source)
+        let toStride = CVPixelBufferGetBytesPerRow(destination)
+        let rowBytes = min(fromStride, toStride, CVPixelBufferGetWidth(source) * 4)
+        let rows = min(CVPixelBufferGetHeight(source), CVPixelBufferGetHeight(destination))
+        for row in 0..<rows {
+            memcpy(to + row * toStride, from + row * fromStride, rowBytes)
+        }
+        return true
     }
 
     /// Wraps a frame (placeholder or a live frame from the sink) for sending, stamped with this
