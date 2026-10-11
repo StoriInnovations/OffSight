@@ -35,9 +35,20 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
     private var sinkLoopToken: UInt64 = 0
     private var sinkLoopActive = false
     private var sinkStats = SinkStats()
+    private var pendingFormat: Dimensions?
 
-    init(localizedName: String) {
-        formats = OffSightConstants.formats.compactMap { VideoFormat(dimensions: $0) }
+    /// Called (on the sink queue) with an authenticated request for a different format.
+    var onFormatRequest: ((Dimensions) -> Void)?
+    /// Called when the last meeting app stops streaming.
+    var onIdle: (() -> Void)?
+
+    /// The single format this device offers (architecture: one format, the live camera's size).
+    let format: Dimensions
+
+    init(localizedName: String, format requested: Dimensions) {
+        let video = VideoFormat(dimensions: requested) ?? VideoFormat(dimensions: OffSightConstants.defaultFormat)!
+        formats = [video]
+        format = video.dimensions
         gate = FrameGate(epoch: UInt64.random(in: 1...UInt64.max), activeFormat: formats[0].dimensions)
         super.init()
 
@@ -56,7 +67,32 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         } catch {
             log.fault("Failed to add streams: \(error.localizedDescription, privacy: .public)")
         }
-        log.info("OffSight Camera ready, epoch \(self.gate.epoch)")
+        log.notice("OffSight Camera ready at \(self.format.description, privacy: .public), epoch \(self.gate.epoch)")
+    }
+
+    /// No meeting app is streaming, so the device can be re-registered with another format.
+    var isIdle: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return !sourceStreaming && tracker.activeStreamCount == 0
+    }
+
+    func setPendingFormat(_ format: Dimensions?) {
+        lock.lock()
+        pendingFormat = format
+        lock.unlock()
+        publishSnapshot()
+    }
+
+    /// Stops all activity before this device is removed from the provider.
+    func shutdown() {
+        lock.lock()
+        sourceStreaming = false
+        sinkLoopToken &+= 1
+        sinkLoopActive = false
+        for watcher in exitWatchers.values { watcher.cancel() }
+        exitWatchers.removeAll()
+        lock.unlock()
+        stopTimer()
     }
 
     // MARK: CMIOExtensionDeviceSource
@@ -131,6 +167,9 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
             stopTimer()
         }
         publishSnapshot()
+        if !stillStreaming {
+            onIdle?()
+        }
     }
 
     func clientDisconnected(_ client: CMIOExtensionClient) {
@@ -179,7 +218,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
                               activeFormat: formats[activeFormatIndex].dimensions,
                               clients: tracker.sortedRecords, stats: gate.stats,
                               sinkConnected: sinkClient != nil, sinkAuthMode: sinkAuthMode,
-                              sink: sinkStats).encodedJSON()
+                              sink: sinkStats, pendingFormat: pendingFormat).encodedJSON()
     }
 
     private func publishSnapshot() {
@@ -307,13 +346,18 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         let dimensions = Dimensions(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
         let tag = Self.readTag(from: pixelBuffer)
 
-        lock.lock(); defer { lock.unlock() }
-        let verdict = gate.evaluateLiveFrame(tag: tag, sinkAuthenticated: sinkAuthenticated,
+        lock.lock()
+        let verdict = gate.evaluateSinkFrame(tag: tag, sinkAuthenticated: sinkAuthenticated,
                                              dimensions: dimensions, now: Self.hostSeconds())
-        guard verdict == .forward, sourceStreaming else { return }
-        // Re-stamp with the advertised format description and our own timing (see VideoFormat).
-        let outgoing = formats[activeFormatIndex].makeSampleBuffer(wrapping: pixelBuffer) ?? sampleBuffer
-        sourceStream.stream.send(outgoing, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
+        if case .forward = verdict, sourceStreaming {
+            // Re-stamp with the advertised format description and our own timing (see VideoFormat).
+            let outgoing = formats[activeFormatIndex].makeSampleBuffer(wrapping: pixelBuffer) ?? sampleBuffer
+            sourceStream.stream.send(outgoing, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
+        }
+        lock.unlock()
+        if case .formatRequest(let requested) = verdict, requested != format {
+            onFormatRequest?(requested)
+        }
     }
 
     private static func readTag(from pixelBuffer: CVPixelBuffer) -> String? {

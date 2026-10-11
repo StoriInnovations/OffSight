@@ -23,8 +23,12 @@ public struct ClientRecord: Codable, Hashable, Sendable {
 }
 
 /// Counters the extension keeps about what it sent; published for diagnostics only.
+/// Decoding tolerates missing fields, so app and extension builds of different ages interoperate.
 public struct GateStats: Codable, Equatable, Sendable {
     public var liveFramesForwarded: UInt64 = 0
+    /// Placeholder frames rendered by OffSight.app and forwarded from the sink.
+    public var appPlaceholderFramesForwarded: UInt64 = 0
+    /// Placeholder frames the extension generated itself (fallback when the app sends none).
     public var placeholderFramesSent: UInt64 = 0
     public var rejectedUnauthenticated: UInt64 = 0
     public var rejectedMissingTag: UInt64 = 0
@@ -33,6 +37,18 @@ public struct GateStats: Codable, Equatable, Sendable {
     public var rejectedWrongDimensions: UInt64 = 0
 
     public init() {}
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        liveFramesForwarded = try c.decodeIfPresent(UInt64.self, forKey: .liveFramesForwarded) ?? 0
+        appPlaceholderFramesForwarded = try c.decodeIfPresent(UInt64.self, forKey: .appPlaceholderFramesForwarded) ?? 0
+        placeholderFramesSent = try c.decodeIfPresent(UInt64.self, forKey: .placeholderFramesSent) ?? 0
+        rejectedUnauthenticated = try c.decodeIfPresent(UInt64.self, forKey: .rejectedUnauthenticated) ?? 0
+        rejectedMissingTag = try c.decodeIfPresent(UInt64.self, forKey: .rejectedMissingTag) ?? 0
+        rejectedWrongEpoch = try c.decodeIfPresent(UInt64.self, forKey: .rejectedWrongEpoch) ?? 0
+        rejectedStaleGeneration = try c.decodeIfPresent(UInt64.self, forKey: .rejectedStaleGeneration) ?? 0
+        rejectedWrongDimensions = try c.decodeIfPresent(UInt64.self, forKey: .rejectedWrongDimensions) ?? 0
+    }
 }
 
 /// How the extension's sink (frames from OffSight.app) is being consumed; diagnostics only.
@@ -45,6 +61,16 @@ public struct SinkStats: Codable, Equatable, Sendable {
     public var lastError: String?
 
     public init() {}
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        consumeLoopsStarted = try c.decodeIfPresent(UInt64.self, forKey: .consumeLoopsStarted) ?? 0
+        consumeCallbacks = try c.decodeIfPresent(UInt64.self, forKey: .consumeCallbacks) ?? 0
+        buffersReceived = try c.decodeIfPresent(UInt64.self, forKey: .buffersReceived) ?? 0
+        buffersWithoutImage = try c.decodeIfPresent(UInt64.self, forKey: .buffersWithoutImage) ?? 0
+        consumeErrors = try c.decodeIfPresent(UInt64.self, forKey: .consumeErrors) ?? 0
+        lastError = try c.decodeIfPresent(String.self, forKey: .lastError)
+    }
 }
 
 /// State the extension publishes through its read-only custom property.
@@ -58,10 +84,12 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
     public var sinkAuthMode: String
     /// Optional so app and extension builds of different ages still understand each other.
     public var sink: SinkStats?
+    /// A camera format the app asked for, applied once no app is using OffSight Camera.
+    public var pendingFormat: Dimensions?
 
     public init(epoch: UInt64, generation: UInt64, activeFormat: Dimensions, clients: [ClientRecord],
                 stats: GateStats = GateStats(), sinkConnected: Bool = false, sinkAuthMode: String = "none",
-                sink: SinkStats? = nil) {
+                sink: SinkStats? = nil, pendingFormat: Dimensions? = nil) {
         self.epoch = epoch
         self.generation = generation
         self.activeFormat = activeFormat
@@ -70,6 +98,7 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
         self.sinkConnected = sinkConnected
         self.sinkAuthMode = sinkAuthMode
         self.sink = sink
+        self.pendingFormat = pendingFormat
     }
 
     /// True when the parts that drive approval decisions are identical (stats are ignored).
@@ -90,23 +119,33 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
     }
 }
 
-/// Tag attached to every live frame the app sends. The extension forwards a live frame only
-/// when the tag matches its current epoch and client-set generation (the "generation fence").
+/// Tag attached to every frame the app sends into the sink. Live frames are forwarded only when
+/// the tag matches the extension's current epoch and client-set generation (the "generation
+/// fence"). Placeholder frames carry no camera content, so they only need the current epoch.
 public struct FrameTag: Equatable, Sendable {
+    public enum Kind: String, Sendable {
+        case live
+        case placeholder = "ph"
+        /// Not shown to anyone: announces the live camera's native size (the frame's dimensions).
+        case formatRequest = "fmt"
+    }
+
+    public let kind: Kind
     public let epoch: UInt64
     public let generation: UInt64
 
-    public init(epoch: UInt64, generation: UInt64) {
+    public init(kind: Kind = .live, epoch: UInt64, generation: UInt64) {
+        self.kind = kind
         self.epoch = epoch
         self.generation = generation
     }
 
-    public var encoded: String { "live|\(epoch)|\(generation)" }
+    public var encoded: String { "\(kind.rawValue)|\(epoch)|\(generation)" }
 
     public init?(encoded: String) {
         let parts = encoded.split(separator: "|", omittingEmptySubsequences: false)
-        guard parts.count == 3, parts[0] == "live",
+        guard parts.count == 3, let kind = Kind(rawValue: String(parts[0])),
               let epoch = UInt64(parts[1]), let generation = UInt64(parts[2]) else { return nil }
-        self.init(epoch: epoch, generation: generation)
+        self.init(kind: kind, epoch: epoch, generation: generation)
     }
 }

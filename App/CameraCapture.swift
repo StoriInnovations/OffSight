@@ -37,6 +37,23 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     /// Built-in camera first (initial scope), then any other physical camera.
+    /// Native size of the camera used as the live source: its largest mode that supports 30 fps.
+    /// OffSight Camera advertises exactly this size, so live frames pass through unscaled.
+    private(set) lazy var nativeFormat: Dimensions? = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }
+
+    private static func nativeMode(of device: AVCaptureDevice) -> (format: AVCaptureDevice.Format, dimensions: Dimensions)? {
+        device.formats
+            .filter { format in
+                format.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= 29.9 && $0.minFrameRate <= 30.1 }
+            }
+            .map { format -> (format: AVCaptureDevice.Format, dimensions: Dimensions) in
+                let size = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                return (format: format, dimensions: Dimensions(width: Int(size.width), height: Int(size.height)))
+            }
+            .filter { OffSightConstants.isAcceptableFormat($0.dimensions) }
+            .max { $0.dimensions.width * $0.dimensions.height < $1.dimensions.width * $1.dimensions.height }
+    }
+
     private func selectDevice() -> AVCaptureDevice? {
         if let builtIn = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .unspecified) {
             return builtIn
@@ -60,11 +77,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             output.setSampleBufferDelegate(self, queue: frameQueue)
 
             session.beginConfiguration()
-            if session.canSetSessionPreset(.hd1280x720) {
-                session.sessionPreset = .hd1280x720
-            } else {
-                session.sessionPreset = .high
-            }
+            // Capture in the camera's native mode (see nativeFormat) rather than a preset.
+            session.sessionPreset = .inputPriority
             guard session.canAddInput(input), session.canAddOutput(output) else {
                 session.commitConfiguration()
                 log.error("Cannot add camera input/output")
@@ -72,6 +86,19 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             }
             session.addInput(input)
             session.addOutput(output)
+            if let mode = Self.nativeMode(of: device) {
+                do {
+                    try device.lockForConfiguration()
+                    device.activeFormat = mode.format
+                    let thirtyFPS = CMTime(value: 1, timescale: OffSightConstants.frameRate)
+                    device.activeVideoMinFrameDuration = thirtyFPS
+                    device.activeVideoMaxFrameDuration = thirtyFPS
+                    device.unlockForConfiguration()
+                    log.info("Capturing at native \(mode.dimensions.description, privacy: .public), 30 fps")
+                } catch {
+                    log.error("Could not select the native camera mode: \(error.localizedDescription, privacy: .public)")
+                }
+            }
             session.commitConfiguration()
             deviceName = device.localizedName
             isConfigured = true

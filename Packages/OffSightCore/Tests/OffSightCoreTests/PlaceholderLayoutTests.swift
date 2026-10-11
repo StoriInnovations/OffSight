@@ -43,3 +43,41 @@ final class PlaceholderLayoutTests: XCTestCase {
         XCTAssertEqual(ultraWide.width / ultraWide.height, wide.width / wide.height, accuracy: 0.0001)
     }
 }
+
+final class PlaceholderRenderingTests: XCTestCase {
+    private func image(width: Int, height: Int, white: Bool) -> CGImage {
+        let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(white ? CGColor(red: 1, green: 1, blue: 1, alpha: 1) : CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()!
+    }
+
+    func testRendersEveryFormatWithContent() {
+        for format in [Dimensions(width: 1920, height: 1080), Dimensions(width: 1280, height: 720),
+                       Dimensions(width: 640, height: 480), Dimensions(width: 3840, height: 2160)] {
+            let buffer = PlaceholderRendering.render(image(width: 192, height: 108, white: true), dimensions: format)
+            XCTAssertNotNil(buffer, "\(format)")
+            XCTAssertEqual(buffer.map(CVPixelBufferGetWidth), format.width)
+            XCTAssertEqual(buffer.map(CVPixelBufferGetHeight), format.height)
+            XCTAssertEqual(buffer.map(PlaceholderRendering.brightSamples), 4096, "\(format) should be fully covered")
+        }
+    }
+
+    func testNilImageGivesPlainSlate() {
+        let buffer = PlaceholderRendering.render(nil, dimensions: Dimensions(width: 1280, height: 720))
+        XCTAssertEqual(buffer.map(PlaceholderRendering.brightSamples), 0)
+    }
+
+    func testCopyPixels() {
+        let format = Dimensions(width: 640, height: 480)
+        let source = PlaceholderRendering.render(image(width: 64, height: 48, white: true), dimensions: format)!
+        var pool: CVPixelBufferPool?
+        CVPixelBufferPoolCreate(nil, nil, PlaceholderRendering.bufferAttributes(format) as CFDictionary, &pool)
+        var destination: CVPixelBuffer?
+        CVPixelBufferPoolCreatePixelBuffer(nil, pool!, &destination)
+        XCTAssertTrue(PlaceholderRendering.copyPixels(from: source, to: destination!))
+        XCTAssertEqual(PlaceholderRendering.brightSamples(destination!), 4096)
+    }
+}

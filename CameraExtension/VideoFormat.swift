@@ -7,11 +7,11 @@ import ImageIO
 import OffSightCore
 import os
 
-/// One output format plus its placeholder (UR-25, UR-28).
+/// One output format plus its fallback placeholder (UR-25, UR-28).
 ///
-/// The placeholder is rendered once per format and cached. Each frame is then copied into a fresh
-/// buffer from a pool, exactly like live frames arrive: Photo Booth and Teams show nothing when
-/// the same buffers are re-sent, although QuickTime does.
+/// Normally OffSight.app sends the placeholder through the sink, the path Photo Booth and Teams
+/// display. This copy is the fallback for when the app sends nothing (not running, crashed). It is
+/// rendered once and copied into a fresh pool buffer per frame, like frames from the sink.
 final class VideoFormat {
     let dimensions: Dimensions
     let streamFormat: CMIOExtensionStreamFormat
@@ -20,23 +20,24 @@ final class VideoFormat {
     let formatDescription: CMFormatDescription
     private let master: CVPixelBuffer
     private let pool: CVPixelBufferPool
+    private static let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "placeholder")
 
     init?(dimensions: Dimensions) {
         var description: CMFormatDescription?
         CMVideoFormatDescriptionCreate(allocator: kCFAllocatorDefault, codecType: kCVPixelFormatType_32BGRA,
                                        width: Int32(dimensions.width), height: Int32(dimensions.height),
                                        extensions: nil, formatDescriptionOut: &description)
-        // Same buffer attributes as the live frames the app sends.
-        let poolAttributes: [CFString: Any] = [
-            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey: dimensions.width,
-            kCVPixelBufferHeightKey: dimensions.height,
-            kCVPixelBufferIOSurfacePropertiesKey: [String: Any]() as CFDictionary,
-        ]
         var pool: CVPixelBufferPool?
         CVPixelBufferPoolCreate(kCFAllocatorDefault, [kCVPixelBufferPoolMinimumBufferCountKey: 4] as CFDictionary,
-                                poolAttributes as CFDictionary, &pool)
-        guard let description, let pool, let master = PlaceholderRenderer.render(dimensions) else { return nil }
+                                PlaceholderRendering.bufferAttributes(dimensions) as CFDictionary, &pool)
+        let artwork = PlaceholderLayout.artwork(for: dimensions)
+        let image = Self.loadArtwork(artwork.resourceName)
+        if image == nil {
+            Self.log.fault("Placeholder artwork \(artwork.resourceName, privacy: .public) missing; using plain slate")
+        }
+        guard let description, let pool,
+              let master = PlaceholderRendering.render(image, dimensions: dimensions) else { return nil }
+        Self.log.notice("Fallback placeholder \(dimensions.description, privacy: .public): \(PlaceholderRendering.brightSamples(master)) of 4096 samples bright")
 
         let duration = CMTime(value: 1, timescale: OffSightConstants.frameRate)
         self.dimensions = dimensions
@@ -51,32 +52,11 @@ final class VideoFormat {
     func makePlaceholderSampleBuffer() -> CMSampleBuffer? {
         var output: CVPixelBuffer?
         guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &output) == kCVReturnSuccess,
-              let output, Self.copyPixels(from: master, to: output) else { return nil }
+              let output, PlaceholderRendering.copyPixels(from: master, to: output) else { return nil }
         return makeSampleBuffer(wrapping: output)
     }
 
-    /// Row-by-row copy (row strides can differ between the cached master and pool buffers).
-    private static func copyPixels(from source: CVPixelBuffer, to destination: CVPixelBuffer) -> Bool {
-        CVPixelBufferLockBaseAddress(source, .readOnly)
-        CVPixelBufferLockBaseAddress(destination, [])
-        defer {
-            CVPixelBufferUnlockBaseAddress(destination, [])
-            CVPixelBufferUnlockBaseAddress(source, .readOnly)
-        }
-        guard let from = CVPixelBufferGetBaseAddress(source), let to = CVPixelBufferGetBaseAddress(destination) else {
-            return false
-        }
-        let fromStride = CVPixelBufferGetBytesPerRow(source)
-        let toStride = CVPixelBufferGetBytesPerRow(destination)
-        let rowBytes = min(fromStride, toStride, CVPixelBufferGetWidth(source) * 4)
-        let rows = min(CVPixelBufferGetHeight(source), CVPixelBufferGetHeight(destination))
-        for row in 0..<rows {
-            memcpy(to + row * toStride, from + row * fromStride, rowBytes)
-        }
-        return true
-    }
-
-    /// Wraps a frame (placeholder or a live frame from the sink) for sending, stamped with this
+    /// Wraps a frame (fallback placeholder or a frame from the sink) for sending, stamped with this
     /// format's advertised description and the current host time.
     func makeSampleBuffer(wrapping pixelBuffer: CVPixelBuffer) -> CMSampleBuffer? {
         var timing = CMSampleTimingInfo(duration: CMTime(value: 1, timescale: OffSightConstants.frameRate),
@@ -89,77 +69,10 @@ final class VideoFormat {
                                                         sampleTiming: &timing, sampleBufferOut: &sampleBuffer)
         return status == noErr ? sampleBuffer : nil
     }
-}
 
-/// Produces the "Camera off" frame from the brand artwork bundled with this extension
-/// (16:9 1920×1080 and 4:3 1440×1080 PNGs from the handoff). AppKit must not be used in a camera
-/// extension (it runs without a window-server session), so the PNGs are plain resources read with
-/// ImageIO rather than an asset catalog. It lives in the
-/// extension so a correct placeholder exists even if OffSight.app has never run or has crashed
-/// (UR-04). Each format is rendered once and cached by `VideoFormat`. The frame is never mirrored.
-enum PlaceholderRenderer {
-    private static let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "placeholder")
-
-    static func render(_ dimensions: Dimensions) -> CVPixelBuffer? {
-        let attributes: [CFString: Any] = [
-            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey: dimensions.width,
-            kCVPixelBufferHeightKey: dimensions.height,
-            kCVPixelBufferIOSurfacePropertiesKey: [String: Any]() as CFDictionary,
-            kCVPixelBufferCGBitmapContextCompatibilityKey: true,
-        ]
-        var buffer: CVPixelBuffer?
-        guard CVPixelBufferCreate(kCFAllocatorDefault, dimensions.width, dimensions.height, kCVPixelFormatType_32BGRA,
-                                  attributes as CFDictionary, &buffer) == kCVReturnSuccess,
-              let buffer else { return nil }
-
-        CVPixelBufferLockBaseAddress(buffer, [])
-        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
-        guard let context = CGContext(data: CVPixelBufferGetBaseAddress(buffer),
-                                      width: dimensions.width, height: dimensions.height, bitsPerComponent: 8,
-                                      bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
-                                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
-                                          | CGBitmapInfo.byteOrder32Little.rawValue) else { return nil }
-
-        // Brand slate underneath, so nothing but the placeholder can ever show through.
-        context.setFillColor(CGColor(srgbRed: 0x1C / 255.0, green: 0x21 / 255.0, blue: 0x29 / 255.0, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: dimensions.width, height: dimensions.height))
-
-        let artwork = PlaceholderLayout.artwork(for: dimensions)
-        guard let image = artworkImage(artwork.resourceName) else {
-            log.fault("Placeholder artwork \(artwork.resourceName, privacy: .public) missing; sending plain slate frame")
-            return buffer
-        }
-        context.interpolationQuality = .high
-        let rect = PlaceholderLayout.aspectFillRect(source: CGSize(width: image.width, height: image.height),
-                                                    target: dimensions)
-        context.draw(image, in: rect)
-        context.flush()
-        log.info("Placeholder \(dimensions.description, privacy: .public) from \(artwork.resourceName, privacy: .public): \(brightSamples(buffer, dimensions)) of 4096 samples bright (mark and text)")
-        return buffer
-    }
-
-    /// Counts bright pixels on a 64×64 grid of the rendered frame, to confirm in the log that the
-    /// artwork (light mark and text on dark slate) actually landed in the buffer.
-    private static func brightSamples(_ buffer: CVPixelBuffer, _ dimensions: Dimensions) -> Int {
-        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return -1 }
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
-        let pixels = base.assumingMemoryBound(to: UInt8.self)
-        var bright = 0
-        for gy in 0..<64 {
-            for gx in 0..<64 {
-                let x = (gx * dimensions.width) / 64
-                let y = (gy * dimensions.height) / 64
-                let offset = y * bytesPerRow + x * 4 // BGRA
-                let luma = (Int(pixels[offset + 2]) * 3 + Int(pixels[offset + 1]) * 6 + Int(pixels[offset])) / 10
-                if luma > 110 { bright += 1 }
-            }
-        }
-        return bright
-    }
-
-    private static func artworkImage(_ name: String) -> CGImage? {
+    /// The brand PNGs are plain resources read with ImageIO: AppKit must not be used in a camera
+    /// extension (it runs without a window-server session).
+    private static func loadArtwork(_ name: String) -> CGImage? {
         guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
               let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(source, 0, nil)

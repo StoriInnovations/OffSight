@@ -25,12 +25,15 @@ public enum OffSightConstants {
 
     public static let frameRate: Int32 = 30
 
-    /// Formats offered to meeting apps. Index 0 is the default.
-    public static let formats: [Dimensions] = [
-        Dimensions(width: 1280, height: 720),
-        Dimensions(width: 1920, height: 1080),
-        Dimensions(width: 640, height: 480),
-    ]
+    /// OffSight Camera offers exactly one format: the native size of the physical camera used as the
+    /// live source, reported by OffSight.app. This is used until the first report arrives.
+    public static let defaultFormat = Dimensions(width: 1920, height: 1080)
+
+    /// Sanity limits for a reported camera format.
+    public static func isAcceptableFormat(_ format: Dimensions) -> Bool {
+        (320...3840).contains(format.width) && (240...2160).contains(format.height)
+            && format.width % 2 == 0 && format.height % 2 == 0
+    }
 }
 
 public struct Dimensions: Hashable, Codable, Sendable, CustomStringConvertible {

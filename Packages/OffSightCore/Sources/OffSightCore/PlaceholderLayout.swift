@@ -48,3 +48,92 @@ public enum PlaceholderLayout {
         return CGRect(x: (targetWidth - width) / 2, y: (targetHeight - height) / 2, width: width, height: height)
     }
 }
+
+import CoreVideo
+
+/// Renders the "Camera off" frame into BGRA pixel buffers. Shared by OffSight.app (which sends the
+/// placeholder through the sink) and the camera extension (fallback when the app sends nothing).
+public enum PlaceholderRendering {
+    /// Pixel buffer attributes matching the frames the app sends through the sink.
+    public static func bufferAttributes(_ dimensions: Dimensions) -> [CFString: Any] {
+        [
+            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferWidthKey: dimensions.width,
+            kCVPixelBufferHeightKey: dimensions.height,
+            kCVPixelBufferIOSurfacePropertiesKey: [String: Any]() as CFDictionary,
+        ]
+    }
+
+    /// Brand slate, filled underneath so nothing else can ever show through.
+    public static let slate = CGColor(srgbRed: 0x1C / 255.0, green: 0x21 / 255.0, blue: 0x29 / 255.0, alpha: 1)
+
+    /// Draws `image` aspect-filled and centred (never stretched or mirrored) over the slate.
+    /// A nil image yields a plain slate frame.
+    public static func render(_ image: CGImage?, dimensions: Dimensions) -> CVPixelBuffer? {
+        var attributes = bufferAttributes(dimensions)
+        attributes[kCVPixelBufferCGBitmapContextCompatibilityKey] = true
+        var buffer: CVPixelBuffer?
+        guard CVPixelBufferCreate(kCFAllocatorDefault, dimensions.width, dimensions.height, kCVPixelFormatType_32BGRA,
+                                  attributes as CFDictionary, &buffer) == kCVReturnSuccess,
+              let buffer else { return nil }
+
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let context = CGContext(data: CVPixelBufferGetBaseAddress(buffer),
+                                      width: dimensions.width, height: dimensions.height, bitsPerComponent: 8,
+                                      bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+                                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+                                          | CGBitmapInfo.byteOrder32Little.rawValue) else { return nil }
+        context.setFillColor(slate)
+        context.fill(CGRect(x: 0, y: 0, width: dimensions.width, height: dimensions.height))
+        if let image {
+            context.interpolationQuality = .high
+            context.draw(image, in: PlaceholderLayout.aspectFillRect(
+                source: CGSize(width: image.width, height: image.height), target: dimensions))
+        }
+        context.flush()
+        return buffer
+    }
+
+    /// Row-by-row copy (row strides can differ between buffers).
+    @discardableResult
+    public static func copyPixels(from source: CVPixelBuffer, to destination: CVPixelBuffer) -> Bool {
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(destination, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(destination, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+        guard let from = CVPixelBufferGetBaseAddress(source), let to = CVPixelBufferGetBaseAddress(destination) else {
+            return false
+        }
+        let fromStride = CVPixelBufferGetBytesPerRow(source)
+        let toStride = CVPixelBufferGetBytesPerRow(destination)
+        let rowBytes = min(fromStride, toStride, CVPixelBufferGetWidth(source) * 4)
+        let rows = min(CVPixelBufferGetHeight(source), CVPixelBufferGetHeight(destination))
+        for row in 0..<rows {
+            memcpy(to + row * toStride, from + row * fromStride, rowBytes)
+        }
+        return true
+    }
+
+    /// Bright pixels on a 64×64 grid: confirms the light mark and text actually landed in a frame.
+    public static func brightSamples(_ buffer: CVPixelBuffer) -> Int {
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return -1 }
+        let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+        let pixels = base.assumingMemoryBound(to: UInt8.self)
+        var bright = 0
+        for gy in 0..<64 {
+            for gx in 0..<64 {
+                let offset = (gy * height / 64) * bytesPerRow + (gx * width / 64) * 4 // BGRA
+                let luma = (Int(pixels[offset + 2]) * 3 + Int(pixels[offset + 1]) * 6 + Int(pixels[offset])) / 10
+                if luma > 110 { bright += 1 }
+            }
+        }
+        return bright
+    }
+}

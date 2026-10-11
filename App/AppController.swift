@@ -19,6 +19,7 @@ final class AppController: StatusMenuActions {
     private var tickTimer: Timer?
     private var snapshot: ClientSnapshot?
     private var resolvedApps: [AppKey: ResolvedApp] = [:]
+    private var nextFormatRequest = Date.distantPast
     private lazy var settingsWindow = HostedWindowController(title: "OffSight Settings") { SettingsView() }
     private lazy var aboutWindow = HostedWindowController(title: "About OffSight") { AboutView() }
 
@@ -93,8 +94,12 @@ final class AppController: StatusMenuActions {
         if let snapshot {
             // The tag carries the generation this decision was made for; if the client set has
             // changed since, the extension rejects these frames until we catch up (§5.2).
-            feeder.update(SinkFeeder.Config(sendLive: live, epoch: snapshot.epoch,
-                                            generation: snapshot.generation, format: snapshot.activeFormat))
+            // While any app uses OffSight Camera and nobody is live, the app sends the placeholder.
+            let anyClientStreaming = snapshot.clients.contains(where: \.streaming)
+            feeder.update(SinkFeeder.Config(sendLive: live, sendPlaceholder: anyClientStreaming && !live,
+                                            epoch: snapshot.epoch, generation: snapshot.generation,
+                                            format: snapshot.activeFormat))
+            requestNativeFormatIfNeeded()
         } else {
             feeder.update(nil)
         }
@@ -128,6 +133,16 @@ final class AppController: StatusMenuActions {
         menu.extensionNeedsApproval = installer.state == .needsUserApproval
         menu.cameraAccessDenied = CameraCapture.authorizationStatus == .denied
         statusItem?.update(menu)
+    }
+
+    /// OffSight Camera should advertise the live camera's native size. If it doesn't yet, ask the
+    /// extension (it applies the change once no app is using the camera). Throttled to every 5 s.
+    private func requestNativeFormatIfNeeded() {
+        guard let native = capture.nativeFormat, let latest = link.latestSnapshot, latest.sinkConnected,
+              latest.activeFormat != native, latest.pendingFormat != native,
+              Date() >= nextFormatRequest else { return }
+        nextFormatRequest = Date().addingTimeInterval(5)
+        feeder.requestFormat(native, epoch: latest.epoch)
     }
 
     private func name(of app: AppKey) -> String {
@@ -200,6 +215,7 @@ final class AppController: StatusMenuActions {
             resolved: Array(resolvedApps.values),
             engine: engine,
             captureDevice: capture.deviceName,
+            nativeFormat: capture.nativeFormat,
             feeder: feeder,
             bypass: bypass)
         NSPasteboard.general.clearContents()

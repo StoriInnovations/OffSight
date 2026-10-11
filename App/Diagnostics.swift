@@ -6,7 +6,7 @@ import OffSightCore
 enum Diagnostics {
     static func report(snapshot: ClientSnapshot?, link: ExtensionLink, installer: ExtensionInstaller,
                        resolved: [ResolvedApp], engine: PolicyEngine, captureDevice: String?,
-                       feeder: SinkFeeder, bypass: BypassMonitor) -> String {
+                       nativeFormat: Dimensions?, feeder: SinkFeeder, bypass: BypassMonitor) -> String {
         var lines: [String] = []
         let info = Bundle.main.infoDictionary ?? [:]
         lines.append("OffSight diagnostics — \(ISO8601DateFormatter().string(from: Date()))")
@@ -31,11 +31,11 @@ enum Diagnostics {
         lines.append("Device found: \(link.deviceID.map { String($0) } ?? "no"); source stream \(link.sourceStreamID.map { String($0) } ?? "-"); sink stream \(link.sinkStreamID.map { String($0) } ?? "-")")
         lines.append("Sink start status: \(link.sinkStartStatus.map { String($0) } ?? "not attempted") after \(link.sinkStartAttempts) attempt(s)")
         lines.append("Snapshot listener callbacks: \(link.listenerCallbacks); device binds: \(link.rebinds)")
-        lines.append("Capture device: \(captureDevice ?? "not configured")")
-        lines.append("Feeder: sent \(feeder.framesSent), dropped \(feeder.framesDropped)")
+        lines.append("Capture device: \(captureDevice ?? "not configured"); native format \(nativeFormat?.description ?? "unknown")")
+        lines.append("Feeder: live sent \(feeder.framesSent), dropped \(feeder.framesDropped); placeholder sent \(feeder.placeholderFramesSent)")
         lines.append("")
         if let snapshot {
-            lines.append("Extension epoch \(snapshot.epoch), generation \(snapshot.generation), active format \(snapshot.activeFormat)")
+            lines.append("Extension epoch \(snapshot.epoch), generation \(snapshot.generation), camera format \(snapshot.activeFormat)\(snapshot.pendingFormat.map { " (switching to \($0) when idle)" } ?? "")")
             lines.append("Sink connected: \(snapshot.sinkConnected), auth mode: \(snapshot.sinkAuthMode)")
             if let sink = snapshot.sink {
                 lines.append("Sink consume: loops \(sink.consumeLoopsStarted), callbacks \(sink.consumeCallbacks), buffers \(sink.buffersReceived), without image \(sink.buffersWithoutImage), errors \(sink.consumeErrors)\(sink.lastError.map { " (last: \($0))" } ?? "")")
@@ -43,7 +43,7 @@ enum Diagnostics {
                 lines.append("Sink consume: not reported (older extension build)")
             }
             let s = snapshot.stats
-            lines.append("Gate: live forwarded \(s.liveFramesForwarded), placeholder sent \(s.placeholderFramesSent)")
+            lines.append("Gate: live forwarded \(s.liveFramesForwarded), app placeholder forwarded \(s.appPlaceholderFramesForwarded), extension fallback placeholder \(s.placeholderFramesSent)")
             lines.append("Gate rejects: unauthenticated \(s.rejectedUnauthenticated), missing tag \(s.rejectedMissingTag), wrong epoch \(s.rejectedWrongEpoch), stale generation \(s.rejectedStaleGeneration), wrong size \(s.rejectedWrongDimensions)")
             lines.append("Clients:")
             for client in snapshot.clients {
