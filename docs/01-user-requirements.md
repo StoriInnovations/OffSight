@@ -5,9 +5,9 @@
 | Document     | User Requirements (URD)                 |
 | Product      | OffSight for macOS                      |
 | Version      | 0.3 (Revised after review)              |
-| Status       | **Awaiting final approval**             |
+| Status       | **Approved** (2026-10-11)               |
 | Date         | 2026-10-11                              |
-| Next document| Architecture & Implementation Approach (starts after this document is approved) |
+| Next document| Architecture & Implementation Approach (`02-architecture-and-implementation.md`) |
 
 ---
 
@@ -298,6 +298,6 @@ The product meets these requirements when, on a supported Mac:
 
 | Role | Name | Decision | Date |
 |------|------|----------|------|
-| Product owner | | ☐ Approved ☐ Changes requested | |
+| Product owner | Project owner (astatine-) | ☑ Approved (v0.3) | 2026-10-11 |
 
-*Once this document is approved, the Architecture & Implementation Approach document will be produced (`docs/02-architecture-and-implementation.md`).*
+*Approved. The Architecture & Implementation Approach document is `docs/02-architecture-and-implementation.md`.*
