@@ -6,6 +6,7 @@ This runbook gets the M0 build running on your Mac with the **built-in camera**.
 
 ## 1. One-time setup
 
+1. **Use full Xcode for command-line builds:** `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, then `sudo xcodebuild -license accept` and `xcodebuild -runFirstLaunch`. Check with `xcodebuild -version`.
 1. **Xcode account:** Xcode → Settings → Accounts → add the Apple ID that belongs to team **83QJANVRBL**.
 2. **XcodeGen:** `brew install xcodegen`
 3. **App ID:** make sure `com.storiinnovations.offsight` has the **System Extension** capability (setup runbook step 2). Xcode's automatic signing may do this for you on the first build.

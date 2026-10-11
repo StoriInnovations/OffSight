@@ -9,6 +9,16 @@ if ! command -v xcodegen >/dev/null; then
   exit 1
 fi
 
+# xcodebuild needs the full Xcode, not just the Command Line Tools.
+if ! xcodebuild -version >/dev/null 2>&1; then
+  echo "xcodebuild is not using a full Xcode installation." >&2
+  echo "Point it at Xcode (adjust the path if Xcode lives elsewhere), then re-run:" >&2
+  echo "  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
+  echo "  sudo xcodebuild -license accept" >&2
+  echo "  xcodebuild -runFirstLaunch" >&2
+  exit 1
+fi
+
 xcodegen generate
 xcodebuild -project OffSight.xcodeproj -scheme OffSight -configuration Debug \
   -derivedDataPath build/DerivedData -allowProvisioningUpdates build
