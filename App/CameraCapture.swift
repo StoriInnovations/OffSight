@@ -36,7 +36,6 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
     }
 
-    /// Built-in camera first (initial scope), then any other physical camera.
     /// Native size of the camera used as the live source: its largest mode that supports 30 fps.
     /// OffSight Camera advertises exactly this size, so live frames pass through unscaled.
     private(set) lazy var nativeFormat: Dimensions? = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }
@@ -54,6 +53,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             .max { $0.dimensions.width * $0.dimensions.height < $1.dimensions.width * $1.dimensions.height }
     }
 
+    /// Built-in camera first (initial scope), then any other physical camera.
     private func selectDevice() -> AVCaptureDevice? {
         if let builtIn = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .unspecified) {
             return builtIn
