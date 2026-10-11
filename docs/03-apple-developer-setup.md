@@ -10,7 +10,7 @@ Portal labels can change slightly between Apple redesigns. The steps below follo
 **Account → Membership details → Team ID**. OffSight's Team ID is **`83QJANVRBL`**.
 
 ## 1. App group: nothing to register
-OffSight uses the macOS team-prefixed app group `<TeamID>.com.storiinnovations.offsight`. On macOS this is tied to the code signature, so it needs **no** registration and **no** App Groups capability on the App IDs.
+OffSight uses the macOS team-prefixed app group `83QJANVRBL.com.storiinnovations.offsight`. On macOS this is tied to the code signature, so it needs **no** registration and **no** App Groups capability on the App IDs.
 
 ## 2. Identifiers (Certificates, IDs & Profiles → Identifiers)
 Create two App IDs. For each: **+** → **App IDs** → **Continue** → type **App** → **Continue**, then:
