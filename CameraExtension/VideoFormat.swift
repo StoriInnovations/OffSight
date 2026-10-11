@@ -16,8 +16,10 @@ final class VideoFormat {
 
     let dimensions: Dimensions
     let streamFormat: CMIOExtensionStreamFormat
+    /// The description advertised to clients. Every frame sent is stamped with exactly this one:
+    /// stricter clients (Photo Booth, Teams) drop frames whose description differs from it.
+    let formatDescription: CMFormatDescription
     private let placeholders: [CVPixelBuffer]
-    private let placeholderDescription: CMFormatDescription
     private var nextPlaceholder = 0
 
     init?(dimensions: Dimensions) {
@@ -28,30 +30,31 @@ final class VideoFormat {
         let placeholders = (0..<Self.ringSize).compactMap { _ in PlaceholderRenderer.render(dimensions) }
         guard let description, placeholders.count == Self.ringSize else { return nil }
 
-        var bufferDescription: CMFormatDescription?
-        CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: placeholders[0],
-                                                     formatDescriptionOut: &bufferDescription)
-        guard let bufferDescription else { return nil }
-
         let duration = CMTime(value: 1, timescale: OffSightConstants.frameRate)
         self.dimensions = dimensions
+        self.formatDescription = description
         self.streamFormat = CMIOExtensionStreamFormat(formatDescription: description, maxFrameDuration: duration,
                                                       minFrameDuration: duration, validFrameDurations: nil)
         self.placeholders = placeholders
-        self.placeholderDescription = bufferDescription
     }
 
     /// Called on the extension's output timer, under the device lock.
     func makePlaceholderSampleBuffer() -> CMSampleBuffer? {
         let buffer = placeholders[nextPlaceholder]
         nextPlaceholder = (nextPlaceholder + 1) % placeholders.count
+        return makeSampleBuffer(wrapping: buffer)
+    }
+
+    /// Wraps a frame (placeholder or a live frame from the sink) for sending, stamped with this
+    /// format's advertised description and the current host time.
+    func makeSampleBuffer(wrapping pixelBuffer: CVPixelBuffer) -> CMSampleBuffer? {
         var timing = CMSampleTimingInfo(duration: CMTime(value: 1, timescale: OffSightConstants.frameRate),
                                         presentationTimeStamp: CMClockGetTime(CMClockGetHostTimeClock()),
                                         decodeTimeStamp: .invalid)
         var sampleBuffer: CMSampleBuffer?
-        let status = CMSampleBufferCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: buffer,
+        let status = CMSampleBufferCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: pixelBuffer,
                                                         dataReady: true, makeDataReadyCallback: nil, refcon: nil,
-                                                        formatDescription: placeholderDescription,
+                                                        formatDescription: formatDescription,
                                                         sampleTiming: &timing, sampleBufferOut: &sampleBuffer)
         return status == noErr ? sampleBuffer : nil
     }

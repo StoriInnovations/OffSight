@@ -50,6 +50,9 @@ final class SinkFeeder {
         guard let current, current.sendLive, let transferSession else { return }
         guard let output = makeOutputBuffer(for: current.format) else { return }
         guard VTPixelTransferSessionTransferImage(transferSession, from: cameraFrame, to: output) == noErr else { return }
+        // Plain BGRA like the extension's advertised format: drop colour attachments copied from
+        // the camera frame so the extension can stamp the frame with its own format description.
+        CVBufferRemoveAllAttachments(output)
 
         guard let surface = CVPixelBufferGetIOSurface(output)?.takeUnretainedValue() else { return }
         let tag = FrameTag(epoch: current.epoch, generation: current.generation).encoded

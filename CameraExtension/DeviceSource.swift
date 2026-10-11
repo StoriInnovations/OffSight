@@ -311,7 +311,9 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         let verdict = gate.evaluateLiveFrame(tag: tag, sinkAuthenticated: sinkAuthenticated,
                                              dimensions: dimensions, now: Self.hostSeconds())
         guard verdict == .forward, sourceStreaming else { return }
-        sourceStream.stream.send(sampleBuffer, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
+        // Re-stamp with the advertised format description and our own timing (see VideoFormat).
+        let outgoing = formats[activeFormatIndex].makeSampleBuffer(wrapping: pixelBuffer) ?? sampleBuffer
+        sourceStream.stream.send(outgoing, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
     }
 
     private static func readTag(from pixelBuffer: CVPixelBuffer) -> String? {
