@@ -100,25 +100,6 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     log.error("Could not select the native camera mode: \(error.localizedDescription, privacy: .public)")
                 }
             }
-                log.error("Cannot add camera input/output")
-                return false
-            }
-            session.addInput(input)
-            session.addOutput(output)
-            if let mode = Self.nativeMode(of: device) {
-                do {
-                    try device.lockForConfiguration()
-                    device.activeFormat = mode.format
-                    let thirtyFPS = CMTime(value: 1, timescale: OffSightConstants.frameRate)
-                    device.activeVideoMinFrameDuration = thirtyFPS
-                    device.activeVideoMaxFrameDuration = thirtyFPS
-                    device.unlockForConfiguration()
-                    log.info("Capturing at native \(mode.dimensions.description, privacy: .public), 30 fps")
-                } catch {
-                    log.error("Could not select the native camera mode: \(error.localizedDescription, privacy: .public)")
-                }
-            }
-            session.commitConfiguration()
             deviceName = device.localizedName
             isConfigured = true
             log.info("Capture configured with \(device.localizedName, privacy: .public)")
