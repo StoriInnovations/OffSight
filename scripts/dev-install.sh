@@ -21,7 +21,7 @@ fi
 
 xcodegen generate
 xcodebuild -project OffSight.xcodeproj -scheme OffSight -configuration Debug \
-  -derivedDataPath build/DerivedData -allowProvisioningUpdates build
+  -derivedDataPath build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
 
 APP="build/DerivedData/Build/Products/Debug/OffSight.app"
 echo "Built $APP"
