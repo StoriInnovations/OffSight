@@ -31,7 +31,10 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
     private var sinkClient: CMIOExtensionClient?
     private var sinkAuthenticated = false
     private var sinkAuthMode = "none"
-    private var sinkConsuming = false
+    /// Identifies the one live consume loop; a new start or a stop invalidates older loops.
+    private var sinkLoopToken: UInt64 = 0
+    private var sinkLoopActive = false
+    private var sinkStats = SinkStats()
 
     init(localizedName: String) {
         formats = OffSightConstants.formats.compactMap { VideoFormat(dimensions: $0) }
@@ -140,7 +143,8 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         if sinkClient?.clientID == client.clientID {
             sinkClient = nil
             sinkAuthenticated = false
-            sinkConsuming = false
+            sinkLoopToken &+= 1
+            sinkLoopActive = false
         }
         lock.unlock()
         if wasTracked {
@@ -174,7 +178,8 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         return ClientSnapshot(epoch: gate.epoch, generation: gate.generation,
                               activeFormat: formats[activeFormatIndex].dimensions,
                               clients: tracker.sortedRecords, stats: gate.stats,
-                              sinkConnected: sinkClient != nil, sinkAuthMode: sinkAuthMode).encodedJSON()
+                              sinkConnected: sinkClient != nil, sinkAuthMode: sinkAuthMode,
+                              sink: sinkStats).encodedJSON()
     }
 
     private func publishSnapshot() {
@@ -233,24 +238,45 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
 
     func startSink() {
         lock.lock()
-        guard let client = sinkClient, sinkAuthenticated, !sinkConsuming else {
+        guard let client = sinkClient, sinkAuthenticated else {
             lock.unlock()
+            log.error("Sink start ignored: no authenticated sink client")
             return
         }
-        sinkConsuming = true
+        // Always start a fresh loop for the current client; any older loop sees a stale token and stops.
+        sinkLoopToken &+= 1
+        let token = sinkLoopToken
+        sinkLoopActive = true
+        sinkStats.consumeLoopsStarted += 1
         lock.unlock()
-        consumeNextSinkBuffer(from: client)
+        log.info("Sink consume loop \(token) started for pid \(client.pid)")
+        consumeNextSinkBuffer(from: client, token: token)
     }
 
     func stopSink() {
         lock.lock()
-        sinkConsuming = false
+        sinkLoopToken &+= 1
+        sinkLoopActive = false
         lock.unlock()
+        log.info("Sink stopped")
     }
 
-    private func consumeNextSinkBuffer(from client: CMIOExtensionClient) {
-        sinkStream.stream.consumeSampleBuffer(from: client) { [weak self] sampleBuffer, sequenceNumber, _, _, _ in
+    private func consumeNextSinkBuffer(from client: CMIOExtensionClient, token: UInt64) {
+        sinkStream.stream.consumeSampleBuffer(from: client) { [weak self] sampleBuffer, sequenceNumber, _, _, error in
             guard let self else { return }
+            self.lock.lock()
+            self.sinkStats.consumeCallbacks += 1
+            if sampleBuffer != nil {
+                self.sinkStats.buffersReceived += 1
+            } else if let error {
+                self.sinkStats.consumeErrors += 1
+                if self.sinkStats.consumeErrors <= 3 {
+                    self.log.error("consumeSampleBuffer error: \(error.localizedDescription, privacy: .public)")
+                }
+                self.sinkStats.lastError = error.localizedDescription
+            }
+            self.lock.unlock()
+
             if let sampleBuffer {
                 self.handleSinkBuffer(sampleBuffer)
                 let output = CMIOExtensionScheduledOutput(sequenceNumber: sequenceNumber,
@@ -258,19 +284,26 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
                 self.sinkStream.stream.notifyScheduledOutputChanged(output)
             }
             self.lock.lock()
-            let keepGoing = self.sinkConsuming && self.sinkClient?.clientID == client.clientID
+            let keepGoing = self.sinkLoopActive && self.sinkLoopToken == token
             self.lock.unlock()
             guard keepGoing else { return }
             if sampleBuffer != nil {
-                self.sinkQueue.async { self.consumeNextSinkBuffer(from: client) }
+                self.sinkQueue.async { self.consumeNextSinkBuffer(from: client, token: token) }
             } else {
-                self.sinkQueue.asyncAfter(deadline: .now() + .milliseconds(5)) { self.consumeNextSinkBuffer(from: client) }
+                self.sinkQueue.asyncAfter(deadline: .now() + .milliseconds(5)) {
+                    self.consumeNextSinkBuffer(from: client, token: token)
+                }
             }
         }
     }
 
     private func handleSinkBuffer(_ sampleBuffer: CMSampleBuffer) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            lock.lock()
+            sinkStats.buffersWithoutImage += 1
+            lock.unlock()
+            return
+        }
         let dimensions = Dimensions(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
         let tag = Self.readTag(from: pixelBuffer)
 

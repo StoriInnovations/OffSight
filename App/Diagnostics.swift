@@ -37,6 +37,11 @@ enum Diagnostics {
         if let snapshot {
             lines.append("Extension epoch \(snapshot.epoch), generation \(snapshot.generation), active format \(snapshot.activeFormat)")
             lines.append("Sink connected: \(snapshot.sinkConnected), auth mode: \(snapshot.sinkAuthMode)")
+            if let sink = snapshot.sink {
+                lines.append("Sink consume: loops \(sink.consumeLoopsStarted), callbacks \(sink.consumeCallbacks), buffers \(sink.buffersReceived), without image \(sink.buffersWithoutImage), errors \(sink.consumeErrors)\(sink.lastError.map { " (last: \($0))" } ?? "")")
+            } else {
+                lines.append("Sink consume: not reported (older extension build)")
+            }
             let s = snapshot.stats
             lines.append("Gate: live forwarded \(s.liveFramesForwarded), placeholder sent \(s.placeholderFramesSent)")
             lines.append("Gate rejects: unauthenticated \(s.rejectedUnauthenticated), missing tag \(s.rejectedMissingTag), wrong epoch \(s.rejectedWrongEpoch), stale generation \(s.rejectedStaleGeneration), wrong size \(s.rejectedWrongDimensions)")

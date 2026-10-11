@@ -35,6 +35,18 @@ public struct GateStats: Codable, Equatable, Sendable {
     public init() {}
 }
 
+/// How the extension's sink (frames from OffSight.app) is being consumed; diagnostics only.
+public struct SinkStats: Codable, Equatable, Sendable {
+    public var consumeLoopsStarted: UInt64 = 0
+    public var consumeCallbacks: UInt64 = 0
+    public var buffersReceived: UInt64 = 0
+    public var buffersWithoutImage: UInt64 = 0
+    public var consumeErrors: UInt64 = 0
+    public var lastError: String?
+
+    public init() {}
+}
+
 /// State the extension publishes through its read-only custom property.
 public struct ClientSnapshot: Codable, Equatable, Sendable {
     public var epoch: UInt64
@@ -44,9 +56,12 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
     public var stats: GateStats
     public var sinkConnected: Bool
     public var sinkAuthMode: String
+    /// Optional so app and extension builds of different ages still understand each other.
+    public var sink: SinkStats?
 
     public init(epoch: UInt64, generation: UInt64, activeFormat: Dimensions, clients: [ClientRecord],
-                stats: GateStats = GateStats(), sinkConnected: Bool = false, sinkAuthMode: String = "none") {
+                stats: GateStats = GateStats(), sinkConnected: Bool = false, sinkAuthMode: String = "none",
+                sink: SinkStats? = nil) {
         self.epoch = epoch
         self.generation = generation
         self.activeFormat = activeFormat
@@ -54,6 +69,7 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
         self.stats = stats
         self.sinkConnected = sinkConnected
         self.sinkAuthMode = sinkAuthMode
+        self.sink = sink
     }
 
     /// True when the parts that drive approval decisions are identical (stats are ignored).
