@@ -49,18 +49,43 @@ func rgba(_ rep: NSBitmapImageRep, _ x: Int, _ y: Int) -> [CGFloat] {
             color.blueComponent * color.alphaComponent, color.alphaComponent]
 }
 
-/// Mean and max absolute per-channel difference (0…1) between two equally sized renderings.
-func difference(_ a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> (mean: Double, max: Double) {
-    var total = 0.0, worst = 0.0, count = 0.0
+struct Comparison {
+    var mean = 0.0          // mean absolute per-channel difference (informational)
+    var shapeOverlap = 1.0  // intersection-over-union of the opaque (alpha > 0.5) areas
+    var interiorColour = 0.0 // mean RGB difference where both are solid (alpha > 0.95)
+    var map: [String] = []  // per-pixel difference, for diagnosing failures
+}
+
+/// Compares two equally sized renderings. Separate SVG renderers anti-alias edges differently,
+/// so the shape (opaque area) and the colour of solid areas are judged instead of raw pixels.
+func compareRenders(_ a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> Comparison {
+    var result = Comparison()
+    var total = 0.0, samples = 0.0, both = 0.0, either = 0.0, interior = 0.0, interiorCount = 0.0
+    let shades = Array(" .:-=+*#%@")
     for y in 0..<a.pixelsHigh {
+        var row = ""
         for x in 0..<a.pixelsWide {
-            for (p, q) in zip(rgba(a, x, y), rgba(b, x, y)) {
-                let d = Double(abs(p - q))
-                total += d; worst = max(worst, d); count += 1
+            let p = rgba(a, x, y), q = rgba(b, x, y)
+            var worst = 0.0
+            for (u, v) in zip(p, q) {
+                let d = Double(abs(u - v)); total += d; samples += 1; worst = max(worst, d)
             }
+            let opaqueA = p[3] > 0.5, opaqueB = q[3] > 0.5
+            if opaqueA && opaqueB { both += 1 }
+            if opaqueA || opaqueB { either += 1 }
+            if p[3] > 0.95 && q[3] > 0.95 {
+                // Un-premultiplied RGB difference.
+                let d = (0..<3).map { Double(abs(p[$0] / p[3] - q[$0] / q[3])) }.reduce(0, +) / 3
+                interior += d; interiorCount += 1
+            }
+            row.append(shades[min(shades.count - 1, Int(worst * Double(shades.count)))])
         }
+        result.map.append(row)
     }
-    return (total / count, worst)
+    result.mean = total / samples
+    result.shapeOverlap = either == 0 ? 1 : both / either
+    result.interiorColour = interiorCount == 0 ? 0 : interior / interiorCount
+    return result
 }
 
 func reference(_ relativePath: String) -> NSImage? {
@@ -68,7 +93,7 @@ func reference(_ relativePath: String) -> NSImage? {
 }
 
 func compare(asset: String, bundle: Bundle, referencePath: String, pixels: NSSize, appearance: NSAppearance,
-             label: String, tolerance: Double = 0.02) {
+             label: String, minOverlap: Double = 0.9, maxInteriorColour: Double = 0.03) {
     guard let image = bundle.image(forResource: asset) else {
         failures.append("\(label): asset \(asset) not found in compiled catalog"); return
     }
@@ -78,10 +103,16 @@ func compare(asset: String, bundle: Bundle, referencePath: String, pixels: NSSiz
     let actual = render(image, pixels: pixels, appearance: appearance)
     let expected = render(ref, pixels: pixels, appearance: appearance)
     save(actual, "\(label).png")
-    let diff = difference(actual, expected)
-    let ok = diff.mean <= tolerance
-    print(String(format: "%@ %@  mean diff %.4f  max %.3f", ok ? "PASS" : "FAIL", label, diff.mean, diff.max))
-    if !ok { failures.append("\(label): mean difference \(diff.mean) > \(tolerance)") }
+    save(expected, "\(label)-reference.png")
+    let c = compareRenders(actual, expected)
+    let ok = c.shapeOverlap >= minOverlap && c.interiorColour <= maxInteriorColour
+    print(String(format: "%@ %@  shape overlap %.3f  solid-colour diff %.4f  (mean pixel diff %.4f)",
+                 ok ? "PASS" : "FAIL", label, c.shapeOverlap, c.interiorColour, c.mean))
+    if !ok || pixels.width <= 36 && c.mean > 0.02 {
+        print("     difference map (rows top to bottom, ' ' = identical, '@' = fully different):")
+        for row in c.map { print("     |\(row)|") }
+    }
+    if !ok { failures.append("\(label): overlap \(c.shapeOverlap), solid colour diff \(c.interiorColour)") }
 }
 
 // 1. Menu bar glyphs (template and coloured), rendered at 2x (36×36 px) vs the PNG exports.
@@ -103,7 +134,7 @@ for state in states {
 for (asset, file, size) in [("PlaceholderCameraOff", "placeholder/placeholder-camera-off-16x9.png", NSSize(width: 480, height: 270)),
                             ("PlaceholderCameraOff4x3", "placeholder/placeholder-camera-off-4x3.png", NSSize(width: 360, height: 270))] {
     compare(asset: asset, bundle: cameraExtension, referencePath: file, pixels: size, appearance: light,
-            label: "extension-\(asset)", tolerance: 0.01)
+            label: "extension-\(asset)", minOverlap: 0.99, maxInteriorColour: 0.01)
     if let image = cameraExtension.image(forResource: asset),
        let pixels = image.representations.map({ max($0.pixelsWide, 0) }).max() {
         print("     \(asset) pixel width in extension catalog: \(pixels)")
