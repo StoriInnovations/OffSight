@@ -33,6 +33,7 @@ enum Diagnostics {
         lines.append("Snapshot listener callbacks: \(link.listenerCallbacks); device binds: \(link.rebinds)")
         lines.append("Capture device: \(captureDevice ?? "not configured"); native format \(nativeFormat?.description ?? "unknown")")
         lines.append("Feeder: live sent \(feeder.framesSent), dropped \(feeder.framesDropped); placeholder sent \(feeder.placeholderFramesSent)")
+        lines.append("Placeholder: \(feeder.placeholderDescription); style \(feeder.placeholderStyle.rawValue)")
         lines.append("")
         if let snapshot {
             lines.append("Extension epoch \(snapshot.epoch), generation \(snapshot.generation), camera format \(snapshot.activeFormat)\(snapshot.pendingFormat.map { " (switching to \($0) when idle)" } ?? "")")

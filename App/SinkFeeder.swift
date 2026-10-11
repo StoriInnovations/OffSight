@@ -13,6 +13,13 @@ import VideoToolbox
 /// - otherwise, while any app uses OffSight Camera, the brand placeholder at 30 fps. Photo Booth
 ///   and Teams display frames arriving this way, but not frames the extension generates itself.
 final class SinkFeeder {
+    /// Debug test patterns for diagnosing apps that do not display the placeholder.
+    enum PlaceholderStyle: String, CaseIterable {
+        case brand = "Brand placeholder"
+        case brandWithMovingBar = "Brand + moving bar"
+        case brightGrey = "Bright grey (static)"
+    }
+
     struct Config: Equatable {
         var sendLive: Bool
         var sendPlaceholder: Bool
@@ -28,11 +35,19 @@ final class SinkFeeder {
     private var transferSession: VTPixelTransferSession?
     private var livePool: PoolCache
     private var placeholderPool: PoolCache
-    private var placeholderMasters: [Dimensions: CVPixelBuffer] = [:]
+    private var placeholderMasters: [String: CVPixelBuffer] = [:]
+    /// What the last rendered placeholder contains (diagnostics).
+    private(set) var placeholderDescription = "not rendered yet"
     private var placeholderTimer: DispatchSourceTimer?
     /// Used only on the placeholder queue (transfer sessions are not shared across queues).
     private var placeholderTransfer: VTPixelTransferSession?
     private var placeholderFrameCounter: UInt64 = 0
+    private var style: PlaceholderStyle = .brand
+
+    var placeholderStyle: PlaceholderStyle {
+        get { lock.lock(); defer { lock.unlock() }; return style }
+        set { lock.lock(); style = newValue; lock.unlock() }
+    }
     private let placeholderQueue = DispatchQueue(label: "com.storiinnovations.offsight.placeholder", qos: .userInteractive)
     private(set) var framesSent: UInt64 = 0
     private(set) var framesDropped: UInt64 = 0
@@ -102,8 +117,9 @@ final class SinkFeeder {
         lock.lock()
         let current = config
         lock.unlock()
+        let style = placeholderStyle
         guard let current, current.sendPlaceholder, !current.sendLive else { return }
-        guard let master = placeholderMaster(for: current.format),
+        guard let master = placeholderMaster(for: current.format, style: style),
               let output = placeholderPool.buffer(for: current.format) else { return }
         if let placeholderTransfer,
            VTPixelTransferSessionTransferImage(placeholderTransfer, from: master, to: output) == noErr {
@@ -114,6 +130,9 @@ final class SinkFeeder {
         CVBufferRemoveAllAttachments(output)
         placeholderFrameCounter &+= 1
         Self.nudgeCornerPixel(output, frame: placeholderFrameCounter)
+        if style == .brandWithMovingBar {
+            Self.drawMovingBar(output, frame: placeholderFrameCounter)
+        }
         send(output, tag: FrameTag(kind: .placeholder, epoch: current.epoch, generation: current.generation)) { sent in
             if sent { self.placeholderFramesSent += 1 }
         }
@@ -131,14 +150,49 @@ final class SinkFeeder {
         pixel.pointee = (pixel.pointee & 0xFE) | UInt8(frame & 1)
     }
 
-    private func placeholderMaster(for format: Dimensions) -> CVPixelBuffer? {
-        if let cached = placeholderMasters[format] { return cached }
-        let artwork = PlaceholderLayout.artwork(for: format)
-        let image = Self.cgImage(named: artwork.assetName)
+    /// A bright vertical bar sweeping across the frame (debug test pattern).
+    private static func drawMovingBar(_ buffer: CVPixelBuffer, frame: UInt64) {
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return }
+        let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+        let barWidth = max(8, width / 40)
+        let x0 = Int((frame * 12) % UInt64(max(1, width - barWidth)))
+        let pixels = base.assumingMemoryBound(to: UInt8.self)
+        for y in 0..<height {
+            memset(pixels + y * bytesPerRow + x0 * 4, 0xFF, barWidth * 4)
+        }
+    }
+
+    private func placeholderMaster(for format: Dimensions, style: PlaceholderStyle) -> CVPixelBuffer? {
+        let key = "\(format.description)|\(style == .brightGrey ? "grey" : "brand")"
+        if let cached = placeholderMasters[key] { return cached }
+        let image: CGImage?
+        let source: String
+        if style == .brightGrey {
+            image = Self.solidImage(grey: 0.5)
+            source = "solid grey"
+        } else {
+            let artwork = PlaceholderLayout.artwork(for: format)
+            image = Self.cgImage(named: artwork.assetName)
+            source = image == nil ? "MISSING \(artwork.assetName)" : artwork.assetName
+        }
         guard let master = PlaceholderRendering.render(image, dimensions: format) else { return nil }
-        placeholderMasters[format] = master
-        log.info("Placeholder \(format.description, privacy: .public) from \(artwork.assetName, privacy: .public): \(PlaceholderRendering.brightSamples(master)) of 4096 samples bright")
+        placeholderMasters[key] = master
+        let bright = PlaceholderRendering.brightSamples(master)
+        placeholderDescription = "\(format.description) from \(source), \(bright) of 4096 samples bright"
+        log.notice("Placeholder \(self.placeholderDescription, privacy: .public)")
         return master
+    }
+
+    private static func solidImage(grey: CGFloat) -> CGImage? {
+        guard let context = CGContext(data: nil, width: 16, height: 9, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.setFillColor(CGColor(red: grey, green: grey, blue: grey, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 16, height: 9))
+        return context.makeImage()
     }
 
     /// The full-resolution bitmap of an imageset in the app's asset catalog.

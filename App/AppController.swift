@@ -205,6 +205,13 @@ final class AppController: StatusMenuActions {
     func forceProtectionState(_ state: ProtectionState?) {
         statusItem?.force(state)
     }
+
+    func setPlaceholderStyle(_ style: SinkFeeder.PlaceholderStyle) {
+        feeder.placeholderStyle = style
+        log.notice("Placeholder test pattern: \(style.rawValue, privacy: .public)")
+    }
+
+    var placeholderStyle: SinkFeeder.PlaceholderStyle { feeder.placeholderStyle }
     #endif
 
     func copyDiagnostics() {

@@ -37,6 +37,8 @@ protocol StatusMenuActions: AnyObject {
     func openAbout()
     #if DEBUG
     func forceProtectionState(_ state: ProtectionState?)
+    func setPlaceholderStyle(_ style: SinkFeeder.PlaceholderStyle)
+    var placeholderStyle: SinkFeeder.PlaceholderStyle { get }
     #endif
 }
 
@@ -198,6 +200,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(item("Copy diagnostics") { $0.copyDiagnostics() })
         #if DEBUG
         menu.addItem(debugMenuItem())
+        menu.addItem(placeholderTestMenuItem())
         #endif
         menu.addItem(.separator())
         menu.addItem(item("Settings…") { $0.openSettings() })
@@ -224,6 +227,20 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
         debugItem.submenu = submenu
         return debugItem
+    }
+
+    /// Debug only: switch the placeholder between test patterns.
+    private func placeholderTestMenuItem() -> NSMenuItem {
+        let menuItem = NSMenuItem(title: "Debug: Placeholder test pattern", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        let current = actions?.placeholderStyle
+        for style in SinkFeeder.PlaceholderStyle.allCases {
+            let entry = item(style.rawValue) { $0.setPlaceholderStyle(style) }
+            entry.state = current == style ? .on : .off
+            submenu.addItem(entry)
+        }
+        menuItem.submenu = submenu
+        return menuItem
     }
     #endif
 
