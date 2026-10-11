@@ -17,6 +17,8 @@ enum SinkAuthenticator {
     }
 
     private static let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "sink-auth")
+    /// kPOSIXErrorBase + EPERM: the sandbox refused the check (spike S5).
+    private static let sandboxDenied: OSStatus = 100_001
 
     static func authenticate(pid: Int32, signingID: String?) -> Result {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -58,6 +60,8 @@ enum SinkAuthenticator {
                 if staticStatus == errSecSuccess, signingID == nil || signingID == appBundleID {
                     return Result(ok: true, mode: "codesign-path(guest=\(guestStatus))")
                 }
+            }
+            if staticStatus != Self.sandboxDenied {
                 log.error("Sink client pid \(pid) failed the on-disk check (status \(staticStatus), signingID \(sid, privacy: .public))")
                 return Result(ok: false, mode: "codesign-path-mismatch(\(staticStatus), signingID=\(sid))")
             }
