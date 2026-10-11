@@ -4,7 +4,7 @@
 |--------------|-----------------------------------------|
 | Document     | User Requirements (URD)                 |
 | Product      | OffSight for macOS                      |
-| Version      | 0.2 (Revised after review)              |
+| Version      | 0.3 (Revised after review)              |
 | Status       | **Awaiting final approval**             |
 | Date         | 2026-10-11                              |
 | Next document| Architecture & Implementation Approach (starts after this document is approved) |
@@ -96,7 +96,7 @@ Priority uses MoSCoW: **M** = Must, **S** = Should, **C** = Could, **W** = Won't
 | UR-09a | An unanswered prompt **must expire** after a user-set period and close itself, leaving the app on the placeholder. The user can set the period from **5 to 120 seconds**; the default is **30 seconds**. A prompt must never expire into approval. | M |
 | UR-10 | Approval **must apply only to the app named in the prompt**. Approving Zoom must not give Teams or a browser the live feed. | M |
 | UR-11 | Approval **must end automatically when the camera session ends**. The next session for the same app must ask again. There must be **no "always allow" option**. | M |
-| UR-12 | A camera stop and restart by the same app within the **grace period** (for example, switching cameras in the app or a short reconnect) **must not trigger a new prompt**, and keeps the approval state it had. The default grace period is **15 seconds**; the user can set it from **5 seconds to 60 minutes**. Once the grace period passes with the camera stopped, the session ends and its approval is discarded. | M |
+| UR-12 | A camera stop and restart by the same app within the **grace period** (for example, switching cameras in the app or a short reconnect) **must not trigger a new prompt**, and keeps the approval state it had. The default grace period is **15 seconds**; the user can set it from **5 to 300 seconds**. Once the grace period passes with the camera stopped, the session ends and its approval is discarded. | M |
 | UR-13 | If the user picks "Keep placeholder" or the prompt expires, they **must be able to go live later in the same session** from the menu bar without restarting video in the meeting app. | M |
 | UR-14 | The approval prompt **must not be easy to approve by accident**. For example, it must not grab keyboard focus in a way that a stray Return or Space keypress approves it. | M |
 | UR-15 | If several apps start sessions at the same time, each **must get its own prompt or prompt entry**, and each is approved separately. | S |
@@ -248,7 +248,7 @@ Priority uses MoSCoW: **M** = Must, **S** = Should, **C** = Could, **W** = Won't
 - **C5.** Mac App Store builds run in Apple's App Sandbox and go through App Review. Some features, especially bypass detection (UR-35/35a) and global shortcuts (UR-17), must be checked against sandbox rules. The architecture document will confirm each one and name any feature that differs between the App Store and Homebrew builds.
 - **C6.** On macOS, apps that use OffSight Camera can be identified, but an app using a physical camera directly may only show up as "camera in use by another app". Naming the app responsible for a bypass is therefore best effort (UR-35a).
 
-## 12. Review decisions (v0.2)
+## 12. Review decisions (v0.2–v0.3)
 
 All open questions from v0.1 are resolved:
 
@@ -256,7 +256,7 @@ All open questions from v0.1 are resolved:
 |---|----------|----------|--------------|
 | Q1 | Browser approvals | One approval covers the whole browser for the session. The tab or site name is shown on a best-effort basis. | UR-34, UR-34a |
 | Q2 | Prompt expiry | An unanswered prompt expires into safe mode (placeholder only). The user sets the expiry from 5 to 120 seconds; the default is 30 seconds. | UR-09a |
-| Q3 | Grace period | 15 seconds by default; the user can set it from 5 seconds to 60 minutes. | UR-12 |
+| Q3 | Grace period | 15 seconds by default; the user can set it from 5 to 300 seconds. | UR-12 |
 | Q4 | App exemptions | No exemptions of any kind. | UR-40 |
 | Q5 | Microphone protection | Deferred to v2. | §6.2 |
 | Q6 | Minimum macOS | **macOS 13 Ventura**, the oldest version that supports every required capability. See the rationale below. | NFR-10 |
