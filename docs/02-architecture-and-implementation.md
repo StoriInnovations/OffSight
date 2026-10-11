@@ -5,7 +5,7 @@
 | Document     | Architecture & Implementation Approach (AIA)                 |
 | Product      | OffSight for macOS                                           |
 | Version      | 0.2 (Review decisions applied)                               |
-| Status       | **Awaiting approval**                                        |
+| Status       | **Approved** (2026-10-11)                                    |
 | Date         | 2026-10-11                                                   |
 | Based on     | [User Requirements v0.3 (approved)](01-user-requirements.md) |
 
@@ -456,6 +456,6 @@ Above, `$(TEAM_ID)` stands for `83QJANVRBL`; for example, the app group is `83QJ
 
 | Role | Name | Decision | Date |
 |------|------|----------|------|
-| Product owner | | ☐ Approved ☐ Changes requested | |
+| Product owner | Project owner (astatine-) | ☑ Approved (v0.2) | 2026-10-11 |
 
-*Once this document is approved, implementation starts with milestone M0 (spikes and project skeleton).*
+*Approved. Implementation starts with milestone M0 (spikes and project skeleton).*
