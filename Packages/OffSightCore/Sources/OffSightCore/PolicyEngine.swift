@@ -278,18 +278,24 @@ public struct PolicyEngine: Sendable {
     }
 }
 
-/// What the menu bar icon shows, in priority order (UR-20, UR-35a).
-public enum ShutterIndicator: String, Sendable {
-    case unprotected
-    case paused
-    case live
-    case protected
+/// What the menu bar icon shows (UR-20, UR-35a). When several conditions hold, the brand spec's
+/// priority applies: unprotected > live > paused > protected > idle.
+public enum ProtectionState: String, CaseIterable, Sendable {
+    /// No app is using OffSight Camera.
     case idle
+    /// At least one app is connected and receiving the placeholder.
+    case protected
+    /// A real camera feed is going out (approved, or protection paused with an app connected).
+    case live
+    /// An app is reading a physical camera directly, bypassing OffSight.
+    case unprotected
+    /// The user paused protection.
+    case paused
 
-    public static func current(bypassDetected: Bool, policy: PolicyEngine) -> ShutterIndicator {
+    public static func current(bypassDetected: Bool, policy: PolicyEngine) -> ProtectionState {
         if bypassDetected { return .unprotected }
-        if policy.isPaused { return .paused }
         if policy.outputLive { return .live }
+        if policy.isPaused { return .paused }
         if !policy.activeApps.isEmpty { return .protected }
         return .idle
     }

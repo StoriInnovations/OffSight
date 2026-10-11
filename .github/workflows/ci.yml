@@ -57,3 +57,23 @@ jobs:
           APP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app"
           ls -R "$APP/Contents/Library/SystemExtensions" | head -20
           test -d "$APP/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension"
+      - name: Asset catalogs build without warnings
+        run: |
+          if grep -iE "warning:.*(xcassets|imageset|appiconset|colorset|actool|asset catalog|AppIcon)" build.log; then
+            echo "::error::Asset catalog warnings found"
+            exit 1
+          fi
+          echo "No asset catalog warnings"
+      - name: Verify brand assets against handoff exports
+        if: matrix.configuration == 'Debug'
+        run: |
+          swift scripts/ci/verify-brand-assets.swift \
+            "build/DerivedData/Build/Products/Debug/OffSight.app" \
+            design_handoff_offsight_brand build/brand-renders
+      - name: Upload brand renders
+        if: always() && matrix.configuration == 'Debug'
+        uses: actions/upload-artifact@v4
+        with:
+          name: brand-renders
+          path: build/brand-renders
+          if-no-files-found: ignore

@@ -19,8 +19,11 @@ final class AppController: StatusMenuActions {
     private var tickTimer: Timer?
     private var snapshot: ClientSnapshot?
     private var resolvedApps: [AppKey: ResolvedApp] = [:]
+    private lazy var settingsWindow = HostedWindowController(title: "OffSight Settings") { SettingsView() }
+    private lazy var aboutWindow = HostedWindowController(title: "About OffSight") { AboutView() }
 
     func start() {
+        AppDefaults.register()
         statusItem = StatusItemController(actions: self)
 
         capture.onFrame = { [weak self] frame in self?.feeder.handle(frame) }
@@ -97,7 +100,7 @@ final class AppController: StatusMenuActions {
         })
 
         var menu = MenuState()
-        menu.indicator = ShutterIndicator.current(bypassDetected: bypass.bypassDetected, policy: engine)
+        menu.protectionState = ProtectionState.current(bypassDetected: bypass.bypassDetected, policy: engine)
         menu.sessions = engine.activeSessions.map { session in
             MenuState.SessionRow(app: session.app, name: name(of: session.app), phase: session.phase,
                                  startedAt: session.startedAt)
@@ -164,6 +167,15 @@ final class AppController: StatusMenuActions {
             NSWorkspace.shared.open(url)
         }
     }
+
+    func openSettings() { settingsWindow.show() }
+    func openAbout() { aboutWindow.show() }
+
+    #if DEBUG
+    func forceProtectionState(_ state: ProtectionState?) {
+        statusItem?.force(state)
+    }
+    #endif
 
     func copyDiagnostics() {
         let report = Diagnostics.report(

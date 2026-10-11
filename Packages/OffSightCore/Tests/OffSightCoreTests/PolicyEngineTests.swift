@@ -17,7 +17,7 @@ final class PolicyEngineTests: XCTestCase {
     func testNoClientsMeansNotLive() {
         let engine = PolicyEngine()
         XCTAssertFalse(engine.outputLive)
-        XCTAssertEqual(ShutterIndicator.current(bypassDetected: false, policy: engine), .idle)
+        XCTAssertEqual(ProtectionState.current(bypassDetected: false, policy: engine), .idle)
     }
 
     func testNewClientIsPendingAndPlaceholder() {
@@ -26,7 +26,7 @@ final class PolicyEngineTests: XCTestCase {
         XCTAssertEqual(engine.session(for: zoom)?.phase, .pending)
         XCTAssertFalse(engine.outputLive)
         XCTAssertEqual(engine.pendingPrompts.map(\.app), [zoom])
-        XCTAssertEqual(ShutterIndicator.current(bypassDetected: false, policy: engine), .protected)
+        XCTAssertEqual(ProtectionState.current(bypassDetected: false, policy: engine), .protected)
     }
 
     func testApproveGoesLive() {
@@ -35,7 +35,7 @@ final class PolicyEngineTests: XCTestCase {
         XCTAssertTrue(engine.approve(zoom, now: t0 + 1))
         XCTAssertTrue(engine.outputLive)
         XCTAssertTrue(engine.pendingPrompts.isEmpty)
-        XCTAssertEqual(ShutterIndicator.current(bypassDetected: false, policy: engine), .live)
+        XCTAssertEqual(ProtectionState.current(bypassDetected: false, policy: engine), .live)
     }
 
     func testKeepPlaceholderStaysPlaceholderButCanGoLiveLater() {
@@ -179,7 +179,8 @@ final class PolicyEngineTests: XCTestCase {
         engine.clientsChanged([client(zoom)], now: t0 + 1)
         XCTAssertTrue(engine.outputLive)
         XCTAssertTrue(engine.pendingPrompts.isEmpty)
-        XCTAssertEqual(ShutterIndicator.current(bypassDetected: false, policy: engine), .paused)
+        // Live outranks Paused: a feed is actually going out.
+        XCTAssertEqual(ProtectionState.current(bypassDetected: false, policy: engine), .live)
         engine.tick(now: t0 + 3600)
         XCTAssertFalse(engine.isPaused)
         XCTAssertFalse(engine.outputLive)
@@ -221,10 +222,19 @@ final class PolicyEngineTests: XCTestCase {
 
     // MARK: Indicator priority (UR-35a)
 
+    func testPausedWithoutClientsShowsPaused() {
+        var engine = PolicyEngine()
+        engine.pause(until: t0 + 3600, now: t0)
+        XCTAssertEqual(ProtectionState.current(bypassDetected: false, policy: engine), .paused)
+        engine.clientsChanged([client(zoom)], now: t0 + 1)
+        XCTAssertEqual(ProtectionState.current(bypassDetected: false, policy: engine), .live)
+        XCTAssertEqual(ProtectionState.current(bypassDetected: true, policy: engine), .unprotected)
+    }
+
     func testBypassTakesPriority() {
         var engine = PolicyEngine()
         engine.clientsChanged([client(zoom)], now: t0)
         engine.approve(zoom, now: t0)
-        XCTAssertEqual(ShutterIndicator.current(bypassDetected: true, policy: engine), .unprotected)
+        XCTAssertEqual(ProtectionState.current(bypassDetected: true, policy: engine), .unprotected)
     }
 }

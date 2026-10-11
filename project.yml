@@ -44,6 +44,8 @@ targets:
         # System extension bundles must be named after their bundle identifier.
         PRODUCT_NAME: $(PRODUCT_BUNDLE_IDENTIFIER)
         PRODUCT_MODULE_NAME: OffSightCameraExtension
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: ""
         INFOPLIST_FILE: CameraExtension/Info.plist
         CODE_SIGN_ENTITLEMENTS: CameraExtension/CameraExtension.entitlements
         SKIP_INSTALL: YES
@@ -68,6 +70,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
         PRODUCT_NAME: OffSight
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: ""
         INFOPLIST_FILE: App/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/OffSight.entitlements
       configs:

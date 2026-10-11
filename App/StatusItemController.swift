@@ -1,5 +1,6 @@
 import AppKit
 import OffSightCore
+import QuartzCore
 
 /// Everything the menu needs to render, gathered by AppController.
 struct MenuState {
@@ -10,7 +11,7 @@ struct MenuState {
         let startedAt: Date
     }
 
-    var indicator: ShutterIndicator = .idle
+    var protectionState: ProtectionState = .idle
     var sessions: [SessionRow] = []
     var blockingNames: [String] = []
     var camerasBypassed: [String] = []
@@ -32,13 +33,26 @@ protocol StatusMenuActions: AnyObject {
     func openExtensionApproval()
     func openCameraPrivacySettings()
     func copyDiagnostics()
+    func openSettings()
+    func openAbout()
+    #if DEBUG
+    func forceProtectionState(_ state: ProtectionState?)
+    #endif
 }
 
-/// Menu bar icon and menu (UR-13, UR-16, UR-20…22, UR-35a). Each state has its own shape.
+/// Menu bar icon and menu (UR-13, UR-16, UR-20…22, UR-35a). Uses the brand glyphs from the asset
+/// catalog; each state is distinguishable by shape alone.
 final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private weak var actions: StatusMenuActions?
     private var state = MenuState()
+    private var displayedState: ProtectionState?
+    private var displayedColoured: Bool?
+    private var colourObservation: NSKeyValueObservation?
+    #if DEBUG
+    /// Set from the debug menu to preview each icon; nil follows the real state.
+    private(set) var forcedState: ProtectionState?
+    #endif
 
     init(actions: StatusMenuActions) {
         self.actions = actions
@@ -46,42 +60,76 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
-        render()
+        colourObservation = UserDefaults.standard.observe(\.useColouredStatusIcon, options: [.new]) { [weak self] _, _ in
+            DispatchQueue.main.async { self?.renderIcon() }
+        }
+        renderIcon()
     }
 
     func update(_ newState: MenuState) {
         state = newState
-        render()
+        renderIcon()
     }
 
-    private func render() {
+    #if DEBUG
+    func force(_ forced: ProtectionState?) {
+        forcedState = forced
+        renderIcon()
+    }
+    #endif
+
+    private var effectiveState: ProtectionState {
+        #if DEBUG
+        if let forcedState { return forcedState }
+        #endif
+        return state.protectionState
+    }
+
+    /// Updates the icon only when the state or colour mode changes, on the main thread.
+    private func renderIcon() {
+        dispatchPrecondition(condition: .onQueue(.main))
         guard let button = statusItem.button else { return }
-        let (symbol, label) = Self.symbol(for: state.indicator)
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
-        image?.isTemplate = true
+        let protectionState = effectiveState
+        let coloured = UserDefaults.standard.useColouredStatusIcon
+        guard protectionState != displayedState || coloured != displayedColoured else { return }
+        let isFirstRender = displayedState == nil
+        displayedState = protectionState
+        displayedColoured = coloured
+
+        guard let image = Self.image(for: protectionState, coloured: coloured) else {
+            button.image = nil
+            button.title = "OffSight"
+            return
+        }
+        if !isFirstRender, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            // The only animation allowed: a single 150 ms crossfade between states.
+            button.wantsLayer = true
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = 0.15
+            button.layer?.add(fade, forKey: "stateCrossfade")
+        }
+        button.title = ""
         button.image = image
-        button.title = image == nil ? "OffSight" : ""
-        button.contentTintColor = state.indicator == .live ? .systemRed : nil
-        button.toolTip = "OffSight — \(label)"
-        button.setAccessibilityLabel("OffSight: \(label)")
+        button.toolTip = protectionState.accessibilityDescription
+        button.setAccessibilityLabel(protectionState.accessibilityDescription)
     }
 
-    static func symbol(for indicator: ShutterIndicator) -> (String, String) {
-        switch indicator {
-        case .unprotected: return ("exclamationmark.triangle.fill", "Unprotected — a camera is in use outside OffSight")
-        case .paused: return ("pause.circle", "Protection paused")
-        case .live: return ("video.fill", "Live")
-        case .protected: return ("video.slash.fill", "Protected — placeholder showing")
-        case .idle: return ("video.slash", "Idle")
-        }
+    static func image(for protectionState: ProtectionState, coloured: Bool) -> NSImage? {
+        let name = coloured ? protectionState.menuBarColorAssetName : protectionState.menuBarAssetName
+        // Copy: NSImage(named:) returns a shared instance.
+        guard let image = NSImage(named: name)?.copy() as? NSImage else { return nil }
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = !coloured
+        image.accessibilityDescription = protectionState.accessibilityDescription
+        return image
     }
 
     // MARK: NSMenuDelegate
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        let (_, label) = Self.symbol(for: state.indicator)
-        menu.addItem(disabled("OffSight — \(label)"))
+        menu.addItem(disabled(effectiveState.accessibilityDescription))
 
         if !state.camerasBypassed.isEmpty {
             menu.addItem(.separator())
@@ -109,7 +157,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             let seconds = Int(Date().timeIntervalSince(row.startedAt)) % 60
             let phase: String
             switch row.phase {
-            case .live: phase = state.indicator == .live ? "Live" : "Approved (waiting)"
+            case .live: phase = state.protectionState == .live ? "Live" : "Approved (waiting)"
             case .pending: phase = "Waiting for approval"
             case .placeholder: phase = "Placeholder"
             }
@@ -148,10 +196,36 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(item("Install / update camera extension") { $0.installExtension() })
         menu.addItem(item("Remove camera extension") { $0.removeExtension() })
         menu.addItem(item("Copy diagnostics") { $0.copyDiagnostics() })
+        #if DEBUG
+        menu.addItem(debugMenuItem())
+        #endif
+        menu.addItem(.separator())
+        menu.addItem(item("Settings…") { $0.openSettings() })
+        menu.addItem(item("About OffSight") { $0.openAbout() })
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit OffSight (meeting apps keep the placeholder)",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
+
+    #if DEBUG
+    /// Debug only: force each ProtectionState to check the five icons (and their coloured variants).
+    private func debugMenuItem() -> NSMenuItem {
+        let debugItem = NSMenuItem(title: "Debug: Force icon state", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        let automatic = item("Automatic (follow real state)") { $0.forceProtectionState(nil) }
+        automatic.state = forcedState == nil ? .on : .off
+        submenu.addItem(automatic)
+        submenu.addItem(.separator())
+        for candidate in [ProtectionState.idle, .protected, .live, .unprotected, .paused] {
+            let entry = item(candidate.accessibilityDescription) { $0.forceProtectionState(candidate) }
+            entry.state = forcedState == candidate ? .on : .off
+            entry.image = Self.image(for: candidate, coloured: UserDefaults.standard.useColouredStatusIcon)
+            submenu.addItem(entry)
+        }
+        debugItem.submenu = submenu
+        return debugItem
+    }
+    #endif
 
     private func disabled(_ title: String) -> NSMenuItem {
         let menuItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")

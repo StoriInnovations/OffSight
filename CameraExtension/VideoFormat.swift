@@ -1,10 +1,11 @@
+import AppKit
 import CoreGraphics
 import CoreMedia
 import CoreMediaIO
-import CoreText
 import CoreVideo
 import Foundation
 import OffSightCore
+import os
 
 /// One output format plus its pre-rendered built-in placeholder (UR-25, UR-28).
 struct VideoFormat {
@@ -46,9 +47,13 @@ struct VideoFormat {
     }
 }
 
-/// Draws the built-in "Camera off" placeholder. It lives in the extension so a correct
-/// placeholder exists even if OffSight.app has never run or has crashed (UR-04).
+/// Produces the "Camera off" frame from the brand artwork in this extension's asset catalog
+/// (`PlaceholderCameraOff` 1920×1080, `PlaceholderCameraOff4x3` 1440×1080). It lives in the
+/// extension so a correct placeholder exists even if OffSight.app has never run or has crashed
+/// (UR-04). Each format is rendered once and cached by `VideoFormat`. The frame is never mirrored.
 enum PlaceholderRenderer {
+    private static let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "placeholder")
+
     static func render(_ dimensions: Dimensions) -> CVPixelBuffer? {
         let attributes: [CFString: Any] = [
             kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
@@ -70,67 +75,32 @@ enum PlaceholderRenderer {
                                       space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
                                       bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
                                           | CGBitmapInfo.byteOrder32Little.rawValue) else { return nil }
-        draw(in: context, width: CGFloat(dimensions.width), height: CGFloat(dimensions.height))
+
+        // Brand slate underneath, so nothing but the placeholder can ever show through.
+        context.setFillColor(CGColor(srgbRed: 0x1C / 255.0, green: 0x21 / 255.0, blue: 0x29 / 255.0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: dimensions.width, height: dimensions.height))
+
+        let artwork = PlaceholderLayout.artwork(for: dimensions)
+        guard let image = artworkImage(artwork.assetName) else {
+            log.fault("Placeholder artwork \(artwork.assetName, privacy: .public) missing; sending plain slate frame")
+            return buffer
+        }
+        context.interpolationQuality = .high
+        let rect = PlaceholderLayout.aspectFillRect(source: CGSize(width: image.width, height: image.height),
+                                                    target: dimensions)
+        context.draw(image, in: rect)
+        log.info("Placeholder \(dimensions.description, privacy: .public) from \(artwork.assetName, privacy: .public)")
         return buffer
     }
 
-    private static func draw(in context: CGContext, width: CGFloat, height: CGFloat) {
-        // Background
-        context.setFillColor(CGColor(srgbRed: 0.11, green: 0.13, blue: 0.17, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-
-        let unit = height / 720
-        let iconColor = CGColor(srgbRed: 0.85, green: 0.87, blue: 0.90, alpha: 1)
-
-        // Camera icon with a slash, centred a little above the middle.
-        let bodySize = CGSize(width: 150 * unit, height: 100 * unit)
-        let lensWidth = 55 * unit
-        let totalWidth = bodySize.width + 12 * unit + lensWidth
-        let originX = (width - totalWidth) / 2
-        let originY = height / 2 + 30 * unit
-        let body = CGRect(x: originX, y: originY, width: bodySize.width, height: bodySize.height)
-        context.setFillColor(iconColor)
-        context.addPath(CGPath(roundedRect: body, cornerWidth: 18 * unit, cornerHeight: 18 * unit, transform: nil))
-        context.fillPath()
-        let lensX = body.maxX + 12 * unit
-        context.move(to: CGPoint(x: lensX, y: body.midY))
-        context.addLine(to: CGPoint(x: lensX + lensWidth, y: body.maxY - 8 * unit))
-        context.addLine(to: CGPoint(x: lensX + lensWidth, y: body.minY + 8 * unit))
-        context.closePath()
-        context.fillPath()
-
-        // Slash: background-coloured gap, then the light stroke.
-        let slashStart = CGPoint(x: originX - 10 * unit, y: originY - 25 * unit)
-        let slashEnd = CGPoint(x: originX + totalWidth + 10 * unit, y: originY + bodySize.height + 25 * unit)
-        context.setLineCap(.round)
-        context.setStrokeColor(CGColor(srgbRed: 0.11, green: 0.13, blue: 0.17, alpha: 1))
-        context.setLineWidth(26 * unit)
-        context.move(to: slashStart)
-        context.addLine(to: slashEnd)
-        context.strokePath()
-        context.setStrokeColor(iconColor)
-        context.setLineWidth(12 * unit)
-        context.move(to: slashStart)
-        context.addLine(to: slashEnd)
-        context.strokePath()
-
-        drawCenteredText("Camera off", in: context, width: width, baselineY: height / 2 - 60 * unit,
-                         size: 56 * unit, color: CGColor(srgbRed: 0.95, green: 0.96, blue: 0.97, alpha: 1), bold: true)
-        drawCenteredText("Protected by OffSight", in: context, width: width, baselineY: height / 2 - 115 * unit,
-                         size: 28 * unit, color: CGColor(srgbRed: 0.62, green: 0.66, blue: 0.72, alpha: 1), bold: false)
-    }
-
-    private static func drawCenteredText(_ text: String, in context: CGContext, width: CGFloat, baselineY: CGFloat,
-                                         size: CGFloat, color: CGColor, bold: Bool) {
-        let baseFont = CTFontCreateUIFontForLanguage(bold ? .emphasizedSystem : .system, size, nil)
-            ?? CTFontCreateWithName("Helvetica" as CFString, size, nil)
-        let attributes: [NSAttributedString.Key: Any] = [
-            NSAttributedString.Key(kCTFontAttributeName as String): baseFont,
-            NSAttributedString.Key(kCTForegroundColorAttributeName as String): color,
-        ]
-        let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
-        let bounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
-        context.textPosition = CGPoint(x: (width - bounds.width) / 2 - bounds.minX, y: baselineY)
-        CTLineDraw(line, context)
+    private static func artworkImage(_ name: String) -> CGImage? {
+        guard let image = NSImage(named: name) else { return nil }
+        var rect = CGRect(origin: .zero, size: image.size)
+        // Prefer the full-resolution bitmap rather than a point-sized rendering.
+        if let bitmap = image.representations.compactMap({ $0 as? NSBitmapImageRep }).max(by: { $0.pixelsWide < $1.pixelsWide }),
+           let cgImage = bitmap.cgImage {
+            return cgImage
+        }
+        return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
     }
 }
