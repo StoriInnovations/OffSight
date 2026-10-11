@@ -7,7 +7,7 @@ This runbook sets up the identifiers, certificates, profiles and keys OffSight n
 Portal labels can change slightly between Apple redesigns. The steps below follow developer.apple.com → **Account** → **Program resources**.
 
 ## 0. Note the Team ID
-**Account → Membership details → Team ID** (10 characters, e.g. `HXN643ABCD`).
+**Account → Membership details → Team ID**. OffSight's Team ID is **`83QJANVRBL`**.
 
 ## 1. App group: nothing to register
 OffSight uses the macOS team-prefixed app group `<TeamID>.com.storiinnovations.offsight`. On macOS this is tied to the code signature, so it needs **no** registration and **no** App Groups capability on the App IDs.
@@ -71,4 +71,4 @@ Development profiles: let Xcode manage them (Signing & Capabilities → *Automat
 3. Delete the exported files from Downloads and Desktop once they're in the password manager and GitHub.
 
 ## 8. Tell the project the Team ID
-Add the Team ID to `Config/Signing.xcconfig` (created in milestone M0). This is the only value from this runbook that goes into the repository.
+Done: `Config/Signing.xcconfig` contains `TEAM_ID = 83QJANVRBL`. This is the only value from this runbook that goes into the repository.

@@ -431,7 +431,7 @@ These spikes run **first** (milestone M0). Each has a clear pass/fail result, an
 
 | # | Decision | Outcome |
 |---|----------|---------|
-| A1 | Identifiers | Bundle ID prefix **`com.storiinnovations`** (see the table below). Team ID: the 10-character value from the Apple Developer account; it will be added to `Config/Signing.xcconfig` in M0. |
+| A1 | Identifiers | Bundle ID prefix **`com.storiinnovations`** (see the table below). Team ID **`83QJANVRBL`**, recorded in `Config/Signing.xcconfig`. |
 | A2 | Several apps at once (D-1) | **Accepted.** While any unapproved app is connected, every app gets the placeholder. |
 | A3 | App Store build shows the browser name only | **Accepted.** |
 | A4 | Sleep ends all sessions (R5) | **Accepted.** |
@@ -444,12 +444,13 @@ These spikes run **first** (milestone M0). Each has a clear pass/fail result, an
 |------|-------|
 | App bundle ID | `com.storiinnovations.offsight` |
 | Camera extension bundle ID | `com.storiinnovations.offsight.camera-extension` |
+| Team ID | `83QJANVRBL` (`TEAM_ID` in `Config/Signing.xcconfig`) |
 | App group | `$(TEAM_ID).com.storiinnovations.offsight`. On macOS, a group starting with the Team ID is tied to the code signature, so it needs no registration in the developer portal. |
 | Extension Mach service name | `$(TEAM_ID).com.storiinnovations.offsight.camera-extension` (must start with the app group) |
 | Code-signing requirement checked by the sink (§4.1) | `anchor apple generic and identifier "com.storiinnovations.offsight" and certificate leaf[subject.OU] = "$(TEAM_ID)"` |
 | Homebrew cask | `offsight` in tap `astatine-/homebrew-offsight` |
 
-The Team ID is the only value still to fill in. It isn't secret and is written into every signed binary, so it can be committed. Signing certificates, keys and profiles are secret and are never committed (§13.1).
+Above, `$(TEAM_ID)` stands for `83QJANVRBL`; for example, the app group is `83QJANVRBL.com.storiinnovations.offsight`. The Team ID isn't secret and is written into every signed binary, so it is committed. Signing certificates, keys and profiles are secret and are never committed (§13.1).
 
 ## 19. Approval
 
