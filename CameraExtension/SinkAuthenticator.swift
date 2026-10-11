@@ -65,12 +65,15 @@ enum SinkAuthenticator {
             staticStatus = -1
         }
 
+        // Spike S5: inside the camera extension's sandbox both checks fail with 100001
+        // (kPOSIXErrorBase + EPERM: operation not permitted).
         log.error("Code-signing checks unavailable (guest \(guestStatus), path \(staticStatus), signingID \(sid, privacy: .public))")
         #if DEBUG
-        // Development builds only: fall back to the signing ID so testing can continue.
-        // Release builds always fail closed.
-        if signingID == appBundleID {
-            return Result(ok: true, mode: "signingID-fallback(debug,guest=\(guestStatus),path=\(staticStatus))")
+        // Development builds only, until an authenticated app <-> extension channel replaces this
+        // (decision pending): accept the app installed at the standard location. Weak (an admin can
+        // replace that file), so release builds always fail closed.
+        if let bundleURL = appBundleURL(of: pid), bundleURL.path == "/Applications/OffSight.app" {
+            return Result(ok: true, mode: "debug-path(guest=\(guestStatus),path=\(staticStatus))")
         }
         #endif
         return Result(ok: false, mode: "codesign-unavailable(guest=\(guestStatus),path=\(staticStatus),signingID=\(sid))")
