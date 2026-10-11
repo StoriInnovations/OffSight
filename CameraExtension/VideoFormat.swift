@@ -1,9 +1,9 @@
-import AppKit
 import CoreGraphics
 import CoreMedia
 import CoreMediaIO
 import CoreVideo
 import Foundation
+import ImageIO
 import OffSightCore
 import os
 
@@ -47,8 +47,10 @@ struct VideoFormat {
     }
 }
 
-/// Produces the "Camera off" frame from the brand artwork in this extension's asset catalog
-/// (`PlaceholderCameraOff` 1920×1080, `PlaceholderCameraOff4x3` 1440×1080). It lives in the
+/// Produces the "Camera off" frame from the brand artwork bundled with this extension
+/// (16:9 1920×1080 and 4:3 1440×1080 PNGs from the handoff). AppKit must not be used in a camera
+/// extension (it runs without a window-server session), so the PNGs are plain resources read with
+/// ImageIO rather than an asset catalog. It lives in the
 /// extension so a correct placeholder exists even if OffSight.app has never run or has crashed
 /// (UR-04). Each format is rendered once and cached by `VideoFormat`. The frame is never mirrored.
 enum PlaceholderRenderer {
@@ -81,26 +83,21 @@ enum PlaceholderRenderer {
         context.fill(CGRect(x: 0, y: 0, width: dimensions.width, height: dimensions.height))
 
         let artwork = PlaceholderLayout.artwork(for: dimensions)
-        guard let image = artworkImage(artwork.assetName) else {
-            log.fault("Placeholder artwork \(artwork.assetName, privacy: .public) missing; sending plain slate frame")
+        guard let image = artworkImage(artwork.resourceName) else {
+            log.fault("Placeholder artwork \(artwork.resourceName, privacy: .public) missing; sending plain slate frame")
             return buffer
         }
         context.interpolationQuality = .high
         let rect = PlaceholderLayout.aspectFillRect(source: CGSize(width: image.width, height: image.height),
                                                     target: dimensions)
         context.draw(image, in: rect)
-        log.info("Placeholder \(dimensions.description, privacy: .public) from \(artwork.assetName, privacy: .public)")
+        log.info("Placeholder \(dimensions.description, privacy: .public) from \(artwork.resourceName, privacy: .public)")
         return buffer
     }
 
     private static func artworkImage(_ name: String) -> CGImage? {
-        guard let image = NSImage(named: name) else { return nil }
-        var rect = CGRect(origin: .zero, size: image.size)
-        // Prefer the full-resolution bitmap rather than a point-sized rendering.
-        if let bitmap = image.representations.compactMap({ $0 as? NSBitmapImageRep }).max(by: { $0.pixelsWide < $1.pixelsWide }),
-           let cgImage = bitmap.cgImage {
-            return cgImage
-        }
-        return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 }

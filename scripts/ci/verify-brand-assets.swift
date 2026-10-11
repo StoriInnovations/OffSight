@@ -101,8 +101,8 @@ func reference(_ relativePath: String) -> NSImage? {
 }
 
 func compare(asset: String, bundle: Bundle, referencePath: String, pixels: NSSize, appearance: NSAppearance,
-             label: String, minOverlap: Double = 0.9, maxInteriorColour: Double = 0.03) {
-    guard let image = bundle.image(forResource: asset) else {
+             label: String, minOverlap: Double = 0.9, maxInteriorColour: Double = 0.03, image override: NSImage? = nil) {
+    guard let image = override ?? bundle.image(forResource: asset) else {
         failures.append("\(label): asset \(asset) not found in compiled catalog"); return
     }
     guard let ref = reference(referencePath) else {
@@ -150,15 +150,18 @@ for state in states {
     }
 }
 
-// 2. Placeholder frames from the camera extension's own catalog.
-for (asset, file, size) in [("PlaceholderCameraOff", "placeholder/placeholder-camera-off-16x9.png", NSSize(width: 480, height: 270)),
-                            ("PlaceholderCameraOff4x3", "placeholder/placeholder-camera-off-4x3.png", NSSize(width: 360, height: 270))] {
-    compare(asset: asset, bundle: cameraExtension, referencePath: file, pixels: size, appearance: light,
-            label: "extension-\(asset)", minOverlap: 0.99, maxInteriorColour: 0.01)
-    if let image = cameraExtension.image(forResource: asset),
-       let pixels = image.representations.map({ max($0.pixelsWide, 0) }).max() {
-        print("     \(asset) pixel width in extension catalog: \(pixels)")
+// 2. Placeholder frames: the plain PNG resources the camera extension ships (it reads them with
+// ImageIO; AppKit is not usable in a camera extension).
+for (resource, file, size) in [("placeholder-camera-off-16x9", "placeholder/placeholder-camera-off-16x9.png", NSSize(width: 480, height: 270)),
+                               ("placeholder-camera-off-4x3", "placeholder/placeholder-camera-off-4x3.png", NSSize(width: 360, height: 270))] {
+    guard let url = cameraExtension.url(forResource: resource, withExtension: "png"),
+          let image = NSImage(contentsOf: url) else {
+        failures.append("extension-\(resource): not bundled in the camera extension"); continue
     }
+    compare(asset: resource, bundle: cameraExtension, referencePath: file, pixels: size, appearance: light,
+            label: "extension-\(resource)", minOverlap: 0.99, maxInteriorColour: 0.01, image: image)
+    let pixels = image.representations.map(\.pixelsWide).max() ?? 0
+    print("     \(resource) pixel width in extension: \(pixels)")
 }
 
 // 3. App icon compiled into the bundle.

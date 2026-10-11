@@ -57,6 +57,14 @@ jobs:
           APP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app"
           ls -R "$APP/Contents/Library/SystemExtensions" | head -20
           test -d "$APP/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension"
+      - name: Camera extension does not link AppKit
+        run: |
+          EXT="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension/Contents/MacOS/com.storiinnovations.offsight.camera-extension"
+          otool -L "$EXT"
+          if otool -L "$EXT" | grep -E "AppKit|SwiftUI"; then
+            echo "::error::The camera extension must not link AppKit or SwiftUI"
+            exit 1
+          fi
       - name: Asset catalogs build without warnings
         run: |
           if grep -iE "warning:.*(xcassets|imageset|appiconset|colorset|actool|asset catalog|AppIcon)" build.log; then

@@ -14,6 +14,8 @@ final class PlaceholderLayoutTests: XCTestCase {
         XCTAssertEqual(PlaceholderLayout.artwork(for: Dimensions(width: 1000, height: 1000)), .wide16x9)
         XCTAssertEqual(PlaceholderLayout.Artwork.wide16x9.assetName, "PlaceholderCameraOff")
         XCTAssertEqual(PlaceholderLayout.Artwork.standard4x3.assetName, "PlaceholderCameraOff4x3")
+        XCTAssertEqual(PlaceholderLayout.Artwork.wide16x9.resourceName, "placeholder-camera-off-16x9")
+        XCTAssertEqual(PlaceholderLayout.Artwork.standard4x3.resourceName, "placeholder-camera-off-4x3")
     }
 
     func testExactAspectScalesToFill() {

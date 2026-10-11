@@ -9,10 +9,20 @@ public enum PlaceholderLayout {
         /// `PlaceholderCameraOff4x3`, 1440×1080.
         case standard4x3
 
+        /// Imageset name in the app's asset catalog.
         public var assetName: String {
             switch self {
             case .wide16x9: return "PlaceholderCameraOff"
             case .standard4x3: return "PlaceholderCameraOff4x3"
+            }
+        }
+
+        /// Plain PNG resource (without extension) bundled in the camera extension, which reads it
+        /// with ImageIO because AppKit cannot be used there.
+        public var resourceName: String {
+            switch self {
+            case .wide16x9: return "placeholder-camera-off-16x9"
+            case .standard4x3: return "placeholder-camera-off-4x3"
             }
         }
     }
