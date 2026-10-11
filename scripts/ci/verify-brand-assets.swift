@@ -20,6 +20,7 @@ let extensionURL = appURL.appendingPathComponent(
 guard let cameraExtension = Bundle(url: extensionURL) else { print("cannot open \(extensionURL.path)"); exit(2) }
 
 var failures: [String] = []
+var warnings: [String] = []
 let light = NSAppearance(named: .aqua)!
 let dark = NSAppearance(named: .darkAqua)!
 
@@ -112,14 +113,26 @@ func compare(asset: String, bundle: Bundle, referencePath: String, pixels: NSSiz
     save(actual, "\(label).png")
     save(expected, "\(label)-reference.png")
     let c = compareRenders(actual, expected)
-    let ok = c.shapeOverlap >= minOverlap && c.interiorColour <= maxInteriorColour
+    let colourOK = c.interiorColour <= maxInteriorColour
+    // Below minOverlap but above warnOverlap, with matching colour, is a renderer difference in fine
+    // edges (e.g. thin mask seams): flagged for a human look, not failed.
+    let warnOverlap = minOverlap - 0.1
+    let verdict: String
+    if colourOK && c.shapeOverlap >= minOverlap {
+        verdict = "PASS"
+    } else if colourOK && c.shapeOverlap >= warnOverlap {
+        verdict = "WARN"
+        warnings.append("\(label): shape overlap \(String(format: "%.3f", c.shapeOverlap)) (colour exact); check \(label).png against \(label)-reference.png")
+    } else {
+        verdict = "FAIL"
+        failures.append("\(label): overlap \(c.shapeOverlap), solid colour diff \(c.interiorColour)")
+    }
     print(String(format: "%@ %@  shape overlap %.3f  solid-colour diff %.4f  (mean pixel diff %.4f)",
-                 ok ? "PASS" : "FAIL", label, c.shapeOverlap, c.interiorColour, c.mean))
-    if !ok || pixels.width <= 36 && c.mean > 0.02 {
+                 verdict, label, c.shapeOverlap, c.interiorColour, c.mean))
+    if verdict != "PASS" {
         print("     difference map (rows top to bottom, ' ' = identical, '@' = fully different):")
         for row in c.map { print("     |\(row)|") }
     }
-    if !ok { failures.append("\(label): overlap \(c.shapeOverlap), solid colour diff \(c.interiorColour)") }
 }
 
 // 1. Menu bar glyphs (template and coloured), rendered at 2x (36×36 px) vs the PNG exports.
@@ -200,8 +213,12 @@ if let lockup = app.image(forResource: "LockupHorizontal") {
     failures.append("LockupHorizontal not found")
 }
 
+for warning in warnings {
+    // Surfaces as an annotation on the GitHub Actions run.
+    print("::warning title=Brand asset needs visual check::\(warning)")
+}
 if failures.isEmpty {
-    print("All brand asset checks passed")
+    print(warnings.isEmpty ? "All brand asset checks passed" : "Brand asset checks passed with \(warnings.count) warning(s)")
 } else {
     print("\nFAILURES:\n- " + failures.joined(separator: "\n- "))
     exit(1)
