@@ -339,6 +339,7 @@ offsight/
 |--------|-----|
 | `DEVELOPER_ID_CERT_P12_BASE64` + `_PASSWORD` | Signing the Homebrew build |
 | `APPLE_DISTRIBUTION_CERT_P12_BASE64` + `_PASSWORD` | Signing the App Store build |
+| `MAC_INSTALLER_CERT_P12_BASE64` + `_PASSWORD` | Signing the installer package uploaded to the Mac App Store |
 | `PROFILE_*_BASE64` | Provisioning profiles (app + extension × 2 flavours) |
 | `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID` | Notarization (`notarytool`) and App Store Connect upload |
 
@@ -443,7 +444,7 @@ These spikes run **first** (milestone M0). Each has a clear pass/fail result, an
 |------|-------|
 | App bundle ID | `com.storiinnovations.offsight` |
 | Camera extension bundle ID | `com.storiinnovations.offsight.camera-extension` |
-| App group | `$(TEAM_ID).com.storiinnovations.offsight` |
+| App group | `$(TEAM_ID).com.storiinnovations.offsight`. On macOS, a group starting with the Team ID is tied to the code signature, so it needs no registration in the developer portal. |
 | Extension Mach service name | `$(TEAM_ID).com.storiinnovations.offsight.camera-extension` (must start with the app group) |
 | Code-signing requirement checked by the sink (§4.1) | `anchor apple generic and identifier "com.storiinnovations.offsight" and certificate leaf[subject.OU] = "$(TEAM_ID)"` |
 | Homebrew cask | `offsight` in tap `astatine-/homebrew-offsight` |
