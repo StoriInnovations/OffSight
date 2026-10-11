@@ -19,12 +19,17 @@ if ! xcodebuild -version >/dev/null 2>&1; then
   exit 1
 fi
 
+# macOS only replaces an installed system extension when its build number changes,
+# so every dev build gets a fresh one.
+BUILD_NUMBER=$(date +%s)
+
 xcodegen generate
 xcodebuild -project OffSight.xcodeproj -scheme OffSight -configuration Debug \
-  -derivedDataPath build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
+  -derivedDataPath build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" build
 
 APP="build/DerivedData/Build/Products/Debug/OffSight.app"
-echo "Built $APP"
+echo "Built $APP (build $BUILD_NUMBER)"
 codesign -dv --verbose=2 "$APP" 2>&1 | grep -E "Identifier|TeamIdentifier|Authority=Apple Development" || true
 
 pkill -x OffSight 2>/dev/null || true
