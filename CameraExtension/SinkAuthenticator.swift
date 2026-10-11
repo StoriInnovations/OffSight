@@ -4,8 +4,9 @@ import OffSightCore
 import os
 import Security
 
-/// Decides whether a process may write frames into the sink stream (threat T3, NFR-04):
-/// it must be OffSight.app, signed with its bundle ID by the project's Apple team.
+/// Decides whether a process may write frames into the sink stream (threat T3, NFR-04).
+/// Preferred: OffSight.app's code signature (bundle ID + team). Where the sandbox forbids that
+/// check, the client must run from /Applications/OffSight.app (decision A7).
 ///
 /// Spike S5 found that looking up the running process by pid (`SecCodeCopyGuestWithAttributes`)
 /// is refused inside the extension's sandbox, so the signature of the process's executable on
@@ -19,6 +20,7 @@ enum SinkAuthenticator {
     private static let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "sink-auth")
     /// kPOSIXErrorBase + EPERM: the sandbox refused the check (spike S5).
     private static let sandboxDenied: OSStatus = 100_001
+    private static let installedAppPath = "/Applications/OffSight.app"
 
     static func authenticate(pid: Int32, signingID: String?) -> Result {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -72,14 +74,13 @@ enum SinkAuthenticator {
         // Spike S5: inside the camera extension's sandbox both checks fail with 100001
         // (kPOSIXErrorBase + EPERM: operation not permitted).
         log.error("Code-signing checks unavailable (guest \(guestStatus), path \(staticStatus), signingID \(sid, privacy: .public))")
-        #if DEBUG
-        // Development builds only, until an authenticated app <-> extension channel replaces this
-        // (decision pending): accept the app installed at the standard location. Weak (an admin can
-        // replace that file), so release builds always fail closed.
-        if let bundleURL = appBundleURL(of: pid), bundleURL.path == "/Applications/OffSight.app" {
-            return Result(ok: true, mode: "debug-path(guest=\(guestStatus),path=\(staticStatus))")
+        // Decision A7 (architecture §18): with code-signing checks unavailable in the sandbox,
+        // accept the client running OffSight's executable from /Applications/OffSight.app (where
+        // both the App Store and Homebrew builds install). Accepted risk: someone with admin rights
+        // who replaces that app could inject frames; nobody can read the camera through the sink.
+        if let bundleURL = appBundleURL(of: pid), bundleURL.path == Self.installedAppPath {
+            return Result(ok: true, mode: "path(guest=\(guestStatus),codesign=\(staticStatus))")
         }
-        #endif
         return Result(ok: false, mode: "codesign-unavailable(guest=\(guestStatus),path=\(staticStatus),signingID=\(sid))")
     }
 

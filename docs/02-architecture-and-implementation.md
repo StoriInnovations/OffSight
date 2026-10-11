@@ -145,7 +145,7 @@ Contains no AVFoundation or UI code, so it can be fully unit-tested:
 |---|--------|------------|
 | T1 | A meeting app turns its camera on by itself | It gets the placeholder. The extension's default output is the placeholder (UR-01/02/03). |
 | T2 | A second, unapproved app joins while another app is live | Generation fence (§5.2): the extension switches to placeholder **at once** on any client change, before the app has even reacted. |
-| T3 | A malicious local app tries to inject frames or "approve" itself through the extension | The sink accepts only OffSight.app's code signature. The client list is read-only. Approvals exist only inside OffSight.app (NFR-04). |
+| T3 | A malicious local app tries to inject frames or "approve" itself through the extension | The sink accepts OffSight.app by code signature where possible; inside the extension's sandbox that check is refused (spike S5), so it accepts the client running from `/Applications/OffSight.app` (decision A7). The client list is read-only. Approvals exist only inside OffSight.app (NFR-04). **Accepted risk:** someone with admin rights who replaces `/Applications/OffSight.app` could inject frames into meetings. Nobody can *read* the camera through the sink, and any new client still drops everyone to the placeholder and must be approved. |
 | T4 | Synthetic clicks or keypresses on the prompt, or automation | Approval accepts only events from the HID system event source. Clicks within 300 ms of the panel appearing are ignored. There is no AppleScript dictionary, URL scheme, Shortcuts/App Intents action or command-line flag that can approve (NFR-04, UR-14). |
 | T5 | OffSight.app crashes, hangs or is quit | Live frames stop arriving, so the extension switches to placeholder within 100 ms (stale-frame watchdog). The app restarts itself (NFR-11) with all approvals empty (UR-04). |
 | T6 | The extension crashes | The system restarts it. On restart its state is empty, so it outputs placeholder by default, and the generation counter restarts with a new epoch, which invalidates any earlier tags. |
@@ -407,7 +407,7 @@ These spikes run **first** (milestone M0). Each has a clear pass/fail result, an
 | **S2** | Client signals: `authorizedToStartStream` timing, whether each client's stop is visible, `pid`/`signingID` values for each target app (Chrome/Edge/Arc helpers, WebKit GPU process, Firefox, FaceTime, new Teams, Zoom, Webex, Slack) | Each target app is identified correctly, and start/stop is observed within 500 ms | Expand the lookup table; rely on rule R4; at worst some apps are labelled "Unknown app" but are still protected |
 | **S3** | Format compatibility: every target app lists OffSight Camera and accepts NV12 at 720p/1080p, plus 640×480 | All apps in the matrix work | Add a BGRA format variant and adjust the format list |
 | **S4** | `isInUseByAnotherApplication` reliability across built-in, USB and Continuity cameras, excluding OffSight's own capture | Bypass detected within 1 s, no false positives from OffSight itself | Use the CoreMediaIO `DeviceIsRunningSomewhere` property as the main signal |
-| **S5** | Frame tag survives the trip between processes (IOSurface values); the sink caller's code signature can be checked from inside the extension's sandbox | Tag read correctly in the extension; an unsigned caller is rejected | Use the metadata-row fallback for the tag; check the signing ID plus Team ID from the client's code signature |
+| **S5** | Frame tag survives the trip between processes (IOSurface values); the sink caller's code signature can be checked from inside the extension's sandbox | Tag read correctly in the extension; an unsigned caller is rejected | Use the metadata-row fallback for the tag; check the signing ID plus Team ID from the client's code signature. **Result (2026-10-11):** both code-signing checks are refused in the sandbox (status 100001 = EPERM), and CoreMediaIO reports every client's signing ID as `unknown`. Resolved by decision A7. |
 | **S6** | `SMAppService` agent with KeepAlive restarts after a crash but not after Quit; extension activation flow on macOS 13 vs 15+ | Behaves as described on 13 and 15+ | Fall back to a small bundled watchdog helper |
 | **S7** | Hiding the preview panel from screen capture on macOS 15+ | Hidden from common sharing tools | Document as best effort (NFR-05 is Should); show a "preview visible" hint |
 
@@ -437,6 +437,7 @@ These spikes run **first** (milestone M0). Each has a clear pass/fail result, an
 | A4 | Sleep ends all sessions (R5) | **Accepted.** |
 | A5 | `KeyboardShortcuts` (MIT) as the only third-party dependency | **Accepted.** |
 | A6 | Project Homebrew tap `astatine-/homebrew-offsight` first | **Accepted.** |
+| A7 | How the extension recognises OffSight.app's video feed, given spike S5 (code-signing checks refused in the sandbox) | **Path check:** accept the client running from `/Applications/OffSight.app`, in all builds. Risk accepted as described under T3. |
 
 **Identifiers:**
 
