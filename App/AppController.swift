@@ -33,11 +33,13 @@ final class AppController: StatusMenuActions {
         installer.onChange = { [weak self] in self?.apply() }
         link.onSnapshot = { [weak self] snapshot in self?.handle(snapshot) }
         bypass.onChange = { [weak self] in self?.apply() }
+        bypass.ownCaptureRunning = { [weak self] in self?.capture.isRunningOrStopping ?? false }
 
         if CameraCapture.authorizationStatus == .notDetermined {
             capture.requestAccess { [weak self] _ in self?.apply() }
         }
         installer.activate()
+        installer.refreshInstalledProperties()
         link.start()
         bypass.start()
 
@@ -167,7 +169,7 @@ final class AppController: StatusMenuActions {
         let report = Diagnostics.report(
             snapshot: link.latestSnapshot,
             link: link,
-            installerState: installer.state.label,
+            installer: installer,
             resolved: Array(resolvedApps.values),
             engine: engine,
             captureDevice: capture.deviceName,

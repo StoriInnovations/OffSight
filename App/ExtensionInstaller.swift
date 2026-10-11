@@ -37,15 +37,30 @@ final class ExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
             ?? "com.storiinnovations.offsight.camera-extension"
     }
 
+    private enum RequestKind { case activation, deactivation, properties }
+    private var requestKinds: [ObjectIdentifier: RequestKind] = [:]
+
+    /// What macOS reports about the installed extension (diagnostics).
+    private(set) var installedDescription = "not queried"
+
     func activate() {
         state = .activating
-        let request = OSSystemExtensionRequest.activationRequest(forExtensionWithIdentifier: extensionIdentifier, queue: .main)
-        request.delegate = self
-        OSSystemExtensionManager.shared.submitRequest(request)
+        submit(OSSystemExtensionRequest.activationRequest(forExtensionWithIdentifier: extensionIdentifier, queue: .main),
+               kind: .activation)
     }
 
     func deactivate() {
-        let request = OSSystemExtensionRequest.deactivationRequest(forExtensionWithIdentifier: extensionIdentifier, queue: .main)
+        submit(OSSystemExtensionRequest.deactivationRequest(forExtensionWithIdentifier: extensionIdentifier, queue: .main),
+               kind: .deactivation)
+    }
+
+    func refreshInstalledProperties() {
+        submit(OSSystemExtensionRequest.propertiesRequest(forExtensionWithIdentifier: extensionIdentifier, queue: .main),
+               kind: .properties)
+    }
+
+    private func submit(_ request: OSSystemExtensionRequest, kind: RequestKind) {
+        requestKinds[ObjectIdentifier(request)] = kind
         request.delegate = self
         OSSystemExtensionManager.shared.submitRequest(request)
     }
@@ -78,18 +93,35 @@ final class ExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
     }
 
     func request(_ request: OSSystemExtensionRequest, didFinishWithResult result: OSSystemExtensionRequest.Result) {
+        let kind = requestKinds.removeValue(forKey: ObjectIdentifier(request))
+        guard kind != .properties else { return }
         switch result {
         case .completed:
-            state = state == .activating || state == .needsUserApproval ? .activated : .deactivated
+            state = kind == .deactivation ? .deactivated : .activated
         case .willCompleteAfterReboot:
             state = .willCompleteAfterReboot
         @unknown default:
             state = .failed("unexpected result")
         }
         log.info("Extension request finished: \(String(describing: self.state), privacy: .public)")
+        refreshInstalledProperties()
+    }
+
+    func request(_ request: OSSystemExtensionRequest, foundProperties properties: [OSSystemExtensionProperties]) {
+        requestKinds.removeValue(forKey: ObjectIdentifier(request))
+        installedDescription = properties.isEmpty ? "none installed" : properties.map { p in
+            "v\(p.bundleShortVersion) (\(p.bundleVersion)) enabled=\(p.isEnabled) awaitingApproval=\(p.isAwaitingUserApproval) uninstalling=\(p.isUninstalling)"
+        }.joined(separator: "; ")
+        log.info("Installed extension: \(self.installedDescription, privacy: .public)")
+        onChange?()
     }
 
     func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
+        let kind = requestKinds.removeValue(forKey: ObjectIdentifier(request))
+        if kind == .properties {
+            installedDescription = "query failed: \(error.localizedDescription)"
+            return
+        }
         log.error("Extension request failed: \(error.localizedDescription, privacy: .public)")
         state = .failed(error.localizedDescription)
     }

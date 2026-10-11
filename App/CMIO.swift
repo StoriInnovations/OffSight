@@ -49,4 +49,21 @@ enum CMIO {
     static func deviceUID(of device: CMIOObjectID) -> String? {
         string(of: device, selector: UInt32(kCMIODevicePropertyDeviceUID))
     }
+
+    static func uint32(of object: CMIOObjectID, selector: UInt32) -> UInt32? {
+        var address = CMIO.address(selector)
+        var value: UInt32 = 0
+        var dataUsed: UInt32 = 0
+        let status = CMIOObjectGetPropertyData(object, &address, 0, nil, UInt32(MemoryLayout<UInt32>.size), &dataUsed, &value)
+        return status == noErr ? value : nil
+    }
+
+    /// The CoreMediaIO device whose UID matches an AVCaptureDevice's uniqueID.
+    static func device(withUID uid: String) -> CMIOObjectID? {
+        devices().first { deviceUID(of: $0) == uid }
+    }
+
+    static func isRunningSomewhere(_ device: CMIOObjectID) -> Bool? {
+        uint32(of: device, selector: UInt32(kCMIODevicePropertyDeviceIsRunningSomewhere)).map { $0 != 0 }
+    }
 }

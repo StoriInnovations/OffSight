@@ -14,6 +14,12 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private(set) var deviceName: String?
     private(set) var isConfigured = false
     private(set) var isRunning = false
+    private var lastStopRequestedAt: Date?
+
+    /// True while capturing and for a few seconds after, while the camera is shutting down.
+    var isRunningOrStopping: Bool {
+        isRunning || (lastStopRequestedAt.map { Date().timeIntervalSince($0) < 3 } ?? false)
+    }
 
     private let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "capture")
     private let frameQueue = DispatchQueue(label: "com.storiinnovations.offsight.capture.frames", qos: .userInteractive)
@@ -79,9 +85,11 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     func setRunning(_ run: Bool) {
         guard run != wantsRunning else { return }
-        wantsRunning = run
+        // Not recorded as wanted until configured, so a later call retries (e.g. after camera access is granted).
         if run, !configureIfNeeded() { return }
+        wantsRunning = run
         isRunning = run
+        if !run { lastStopRequestedAt = Date() }
         controlQueue.async { [session] in
             if run {
                 if !session.isRunning { session.startRunning() }

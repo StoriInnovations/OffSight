@@ -4,7 +4,7 @@ import OffSightCore
 
 /// Plain-text report for the spike runbook. Contains no video data and no personal content.
 enum Diagnostics {
-    static func report(snapshot: ClientSnapshot?, link: ExtensionLink, installerState: String,
+    static func report(snapshot: ClientSnapshot?, link: ExtensionLink, installer: ExtensionInstaller,
                        resolved: [ResolvedApp], engine: PolicyEngine, captureDevice: String?,
                        feeder: SinkFeeder, bypass: BypassMonitor) -> String {
         var lines: [String] = []
@@ -18,7 +18,16 @@ enum Diagnostics {
         lines.append("Architecture: x86_64")
         #endif
         lines.append("")
-        lines.append("Extension install state: \(installerState)")
+        lines.append("Extension install state: \(installer.state.label)")
+        lines.append("Extension reported by macOS: \(installer.installedDescription)")
+        lines.append("CoreMediaIO devices:")
+        for device in CMIO.devices() {
+            lines.append("  - \(CMIO.name(of: device) ?? "?") uid=\(CMIO.deviceUID(of: device) ?? "?") runningSomewhere=\(CMIO.isRunningSomewhere(device).map { String($0) } ?? "?")")
+        }
+        lines.append("AVFoundation cameras:")
+        for device in BypassMonitor.allCameras() {
+            lines.append("  - \(device.localizedName) uid=\(device.uniqueID) physical=\(BypassMonitor.isPhysical(device)) inUseByAnotherApp=\(device.isInUseByAnotherApplication)")
+        }
         lines.append("Device found: \(link.deviceID.map { String($0) } ?? "no"); source stream \(link.sourceStreamID.map { String($0) } ?? "-"); sink stream \(link.sinkStreamID.map { String($0) } ?? "-")")
         lines.append("Sink start status: \(link.sinkStartStatus.map { String($0) } ?? "not attempted")")
         lines.append("Snapshot listener callbacks: \(link.listenerCallbacks)")
@@ -49,6 +58,9 @@ enum Diagnostics {
             lines.append("  - \(session.app.id): \(session.phase.rawValue)")
         }
         lines.append("Bypass: \(bypass.camerasInUse.isEmpty ? "none" : bypass.camerasInUse.joined(separator: ", "))")
+        for signal in bypass.lastSignals {
+            lines.append("  - \(signal.name): avInUse=\(signal.avInUseByAnotherApp) cmioRunning=\(signal.cmioRunningSomewhere.map { String($0) } ?? "?") counted=\(signal.counted)")
+        }
         lines.append("Physical cameras: \(BypassMonitor.physicalCameras().map(\.localizedName).joined(separator: ", "))")
         return lines.joined(separator: "\n")
     }
