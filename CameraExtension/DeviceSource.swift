@@ -35,6 +35,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
     private var sinkLoopToken: UInt64 = 0
     private var sinkLoopActive = false
     private var sinkStats = SinkStats()
+    private var sourceStats = SourceStats()
     private var pendingFormat: Dimensions?
 
     /// Called (on the sink queue) with an authenticated request for a different format.
@@ -87,6 +88,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
     func shutdown() {
         lock.lock()
         sourceStreaming = false
+        sourceStats.streaming = false
         sinkLoopToken &+= 1
         sinkLoopActive = false
         for watcher in exitWatchers.values { watcher.cancel() }
@@ -152,7 +154,11 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         lock.lock()
         tracker.streamStarted()
         sourceStreaming = true
+        sourceStats.streaming = true
+        sourceStats.startCalls += 1
+        let count = tracker.activeStreamCount
         lock.unlock()
+        log.notice("Source stream started (active \(count))")
         startTimerIfNeeded()
     }
 
@@ -161,8 +167,11 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         tracker.streamStopped(now: Self.hostSeconds())
         gate.advanceGeneration()
         sourceStreaming = tracker.activeStreamCount > 0
+        sourceStats.streaming = sourceStreaming
+        sourceStats.stopCalls += 1
         let stillStreaming = sourceStreaming
         lock.unlock()
+        log.notice("Source stream stopped (still streaming: \(stillStreaming))")
         if !stillStreaming {
             stopTimer()
         }
@@ -218,7 +227,8 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
                               activeFormat: formats[activeFormatIndex].dimensions,
                               clients: tracker.sortedRecords, stats: gate.stats,
                               sinkConnected: sinkClient != nil, sinkAuthMode: sinkAuthMode,
-                              sink: sinkStats, pendingFormat: pendingFormat).encodedJSON()
+                              sink: sinkStats, pendingFormat: pendingFormat,
+                              source: sourceStats).encodedJSON()
     }
 
     private func publishSnapshot() {
@@ -251,6 +261,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         guard gate.needsPlaceholderFrame(now: now) else { return }
         guard let sampleBuffer = formats[activeFormatIndex].makePlaceholderSampleBuffer() else { return }
         sourceStream.stream.send(sampleBuffer, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
+        sourceStats.sentFallback += 1
     }
 
     // MARK: Sink (frames from OffSight.app)
@@ -349,10 +360,15 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         lock.lock()
         let verdict = gate.evaluateSinkFrame(tag: tag, sinkAuthenticated: sinkAuthenticated,
                                              dimensions: dimensions, now: Self.hostSeconds())
-        if case .forward = verdict, sourceStreaming {
-            // Re-stamp with the advertised format description and our own timing (see VideoFormat).
-            let outgoing = formats[activeFormatIndex].makeSampleBuffer(wrapping: pixelBuffer) ?? sampleBuffer
-            sourceStream.stream.send(outgoing, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
+        if case .forward(let kind) = verdict {
+            if sourceStreaming {
+                // Re-stamp with the advertised format description and our own timing (see VideoFormat).
+                let outgoing = formats[activeFormatIndex].makeSampleBuffer(wrapping: pixelBuffer) ?? sampleBuffer
+                sourceStream.stream.send(outgoing, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
+                if kind == .live { sourceStats.sentLive += 1 } else { sourceStats.sentAppPlaceholder += 1 }
+            } else {
+                sourceStats.droppedNotStreaming += 1
+            }
         }
         lock.unlock()
         if case .formatRequest(let requested) = verdict, requested != format {

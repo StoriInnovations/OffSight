@@ -43,6 +43,11 @@ enum Diagnostics {
             } else {
                 lines.append("Sink consume: not reported (older extension build)")
             }
+            if let source = snapshot.source {
+                lines.append("Source stream: streaming \(source.streaming), start calls \(source.startCalls), stop calls \(source.stopCalls); sent live \(source.sentLive), app placeholder \(source.sentAppPlaceholder), fallback \(source.sentFallback); dropped (not streaming) \(source.droppedNotStreaming)")
+            } else {
+                lines.append("Source stream: not reported (older extension build)")
+            }
             let s = snapshot.stats
             lines.append("Gate: live forwarded \(s.liveFramesForwarded), app placeholder forwarded \(s.appPlaceholderFramesForwarded), extension fallback placeholder \(s.placeholderFramesSent)")
             lines.append("Gate rejects: unauthenticated \(s.rejectedUnauthenticated), missing tag \(s.rejectedMissingTag), wrong epoch \(s.rejectedWrongEpoch), stale generation \(s.rejectedStaleGeneration), wrong size \(s.rejectedWrongDimensions)")

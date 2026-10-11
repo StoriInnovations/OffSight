@@ -73,6 +73,33 @@ public struct SinkStats: Codable, Equatable, Sendable {
     }
 }
 
+/// What the extension does with the stream meeting apps read; diagnostics only.
+public struct SourceStats: Codable, Equatable, Sendable {
+    /// True between CoreMediaIO's startStream and the matching stopStream.
+    public var streaming = false
+    public var startCalls: UInt64 = 0
+    public var stopCalls: UInt64 = 0
+    /// Frames actually handed to CoreMediaIO, by origin.
+    public var sentLive: UInt64 = 0
+    public var sentAppPlaceholder: UInt64 = 0
+    public var sentFallback: UInt64 = 0
+    /// Frames from the sink that passed the gate while no app had the stream started.
+    public var droppedNotStreaming: UInt64 = 0
+
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        streaming = try c.decodeIfPresent(Bool.self, forKey: .streaming) ?? false
+        startCalls = try c.decodeIfPresent(UInt64.self, forKey: .startCalls) ?? 0
+        stopCalls = try c.decodeIfPresent(UInt64.self, forKey: .stopCalls) ?? 0
+        sentLive = try c.decodeIfPresent(UInt64.self, forKey: .sentLive) ?? 0
+        sentAppPlaceholder = try c.decodeIfPresent(UInt64.self, forKey: .sentAppPlaceholder) ?? 0
+        sentFallback = try c.decodeIfPresent(UInt64.self, forKey: .sentFallback) ?? 0
+        droppedNotStreaming = try c.decodeIfPresent(UInt64.self, forKey: .droppedNotStreaming) ?? 0
+    }
+}
+
 /// State the extension publishes through its read-only custom property.
 public struct ClientSnapshot: Codable, Equatable, Sendable {
     public var epoch: UInt64
@@ -86,10 +113,11 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
     public var sink: SinkStats?
     /// A camera format the app asked for, applied once no app is using OffSight Camera.
     public var pendingFormat: Dimensions?
+    public var source: SourceStats?
 
     public init(epoch: UInt64, generation: UInt64, activeFormat: Dimensions, clients: [ClientRecord],
                 stats: GateStats = GateStats(), sinkConnected: Bool = false, sinkAuthMode: String = "none",
-                sink: SinkStats? = nil, pendingFormat: Dimensions? = nil) {
+                sink: SinkStats? = nil, pendingFormat: Dimensions? = nil, source: SourceStats? = nil) {
         self.epoch = epoch
         self.generation = generation
         self.activeFormat = activeFormat
@@ -99,6 +127,7 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
         self.sinkAuthMode = sinkAuthMode
         self.sink = sink
         self.pendingFormat = pendingFormat
+        self.source = source
     }
 
     /// True when the parts that drive approval decisions are identical (stats are ignored).
