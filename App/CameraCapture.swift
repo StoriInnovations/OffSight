@@ -77,10 +77,29 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             output.setSampleBufferDelegate(self, queue: frameQueue)
 
             session.beginConfiguration()
-            // Capture in the camera's native mode (see nativeFormat) rather than a preset.
-            session.sessionPreset = .inputPriority
             guard session.canAddInput(input), session.canAddOutput(output) else {
                 session.commitConfiguration()
+                log.error("Cannot add camera input/output")
+                return false
+            }
+            session.addInput(input)
+            session.addOutput(output)
+            session.commitConfiguration()
+            // Capture in the camera's native mode (see nativeFormat). On macOS this is done by
+            // setting the device's active format directly; there is no input-priority preset.
+            if let mode = Self.nativeMode(of: device) {
+                do {
+                    try device.lockForConfiguration()
+                    device.activeFormat = mode.format
+                    let thirtyFPS = CMTime(value: 1, timescale: OffSightConstants.frameRate)
+                    device.activeVideoMinFrameDuration = thirtyFPS
+                    device.activeVideoMaxFrameDuration = thirtyFPS
+                    device.unlockForConfiguration()
+                    log.info("Capturing at native \(mode.dimensions.description, privacy: .public), 30 fps")
+                } catch {
+                    log.error("Could not select the native camera mode: \(error.localizedDescription, privacy: .public)")
+                }
+            }
                 log.error("Cannot add camera input/output")
                 return false
             }
