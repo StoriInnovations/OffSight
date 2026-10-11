@@ -7,22 +7,29 @@ import ImageIO
 import OffSightCore
 import os
 
-/// One output format plus its pre-rendered built-in placeholder (UR-25, UR-28).
-struct VideoFormat {
+/// One output format plus its pre-rendered placeholder frames (UR-25, UR-28).
+///
+/// The placeholder is rendered once per format and cached, as a small ring of identical buffers
+/// sent in turn: some clients keep the previous frame's buffer and may ignore a frame that reuses it.
+final class VideoFormat {
+    private static let ringSize = 3
+
     let dimensions: Dimensions
     let streamFormat: CMIOExtensionStreamFormat
-    private let placeholder: CVPixelBuffer
+    private let placeholders: [CVPixelBuffer]
     private let placeholderDescription: CMFormatDescription
+    private var nextPlaceholder = 0
 
     init?(dimensions: Dimensions) {
         var description: CMFormatDescription?
         CMVideoFormatDescriptionCreate(allocator: kCFAllocatorDefault, codecType: kCVPixelFormatType_32BGRA,
                                        width: Int32(dimensions.width), height: Int32(dimensions.height),
                                        extensions: nil, formatDescriptionOut: &description)
-        guard let description, let placeholder = PlaceholderRenderer.render(dimensions) else { return nil }
+        let placeholders = (0..<Self.ringSize).compactMap { _ in PlaceholderRenderer.render(dimensions) }
+        guard let description, placeholders.count == Self.ringSize else { return nil }
 
         var bufferDescription: CMFormatDescription?
-        CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: placeholder,
+        CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: placeholders[0],
                                                      formatDescriptionOut: &bufferDescription)
         guard let bufferDescription else { return nil }
 
@@ -30,16 +37,19 @@ struct VideoFormat {
         self.dimensions = dimensions
         self.streamFormat = CMIOExtensionStreamFormat(formatDescription: description, maxFrameDuration: duration,
                                                       minFrameDuration: duration, validFrameDurations: nil)
-        self.placeholder = placeholder
+        self.placeholders = placeholders
         self.placeholderDescription = bufferDescription
     }
 
+    /// Called on the extension's output timer, under the device lock.
     func makePlaceholderSampleBuffer() -> CMSampleBuffer? {
+        let buffer = placeholders[nextPlaceholder]
+        nextPlaceholder = (nextPlaceholder + 1) % placeholders.count
         var timing = CMSampleTimingInfo(duration: CMTime(value: 1, timescale: OffSightConstants.frameRate),
                                         presentationTimeStamp: CMClockGetTime(CMClockGetHostTimeClock()),
                                         decodeTimeStamp: .invalid)
         var sampleBuffer: CMSampleBuffer?
-        let status = CMSampleBufferCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: placeholder,
+        let status = CMSampleBufferCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: buffer,
                                                         dataReady: true, makeDataReadyCallback: nil, refcon: nil,
                                                         formatDescription: placeholderDescription,
                                                         sampleTiming: &timing, sampleBufferOut: &sampleBuffer)
@@ -91,8 +101,28 @@ enum PlaceholderRenderer {
         let rect = PlaceholderLayout.aspectFillRect(source: CGSize(width: image.width, height: image.height),
                                                     target: dimensions)
         context.draw(image, in: rect)
-        log.info("Placeholder \(dimensions.description, privacy: .public) from \(artwork.resourceName, privacy: .public)")
+        context.flush()
+        log.info("Placeholder \(dimensions.description, privacy: .public) from \(artwork.resourceName, privacy: .public): \(brightSamples(buffer, dimensions)) of 4096 samples bright (mark and text)")
         return buffer
+    }
+
+    /// Counts bright pixels on a 64×64 grid of the rendered frame, to confirm in the log that the
+    /// artwork (light mark and text on dark slate) actually landed in the buffer.
+    private static func brightSamples(_ buffer: CVPixelBuffer, _ dimensions: Dimensions) -> Int {
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return -1 }
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+        let pixels = base.assumingMemoryBound(to: UInt8.self)
+        var bright = 0
+        for gy in 0..<64 {
+            for gx in 0..<64 {
+                let x = (gx * dimensions.width) / 64
+                let y = (gy * dimensions.height) / 64
+                let offset = y * bytesPerRow + x * 4 // BGRA
+                let luma = (Int(pixels[offset + 2]) * 3 + Int(pixels[offset + 1]) * 6 + Int(pixels[offset])) / 10
+                if luma > 110 { bright += 1 }
+            }
+        }
+        return bright
     }
 
     private static func artworkImage(_ name: String) -> CGImage? {
