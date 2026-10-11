@@ -8,6 +8,8 @@ import os
 final class ExtensionLink {
     /// Called on the main queue whenever the routing-relevant part of the snapshot changes.
     var onSnapshot: ((ClientSnapshot) -> Void)?
+    /// Called on the main queue when OffSight Camera disappears (extension restarted, replaced or removed).
+    var onDeviceLost: (() -> Void)?
 
     private(set) var deviceID: CMIOObjectID?
     private(set) var sourceStreamID: CMIOStreamID?
@@ -22,6 +24,9 @@ final class ExtensionLink {
     private var pollCount = 0
     private(set) var sinkStartAttempts = 0
     private var devicesListenerInstalled = false
+    private var failedSnapshotReads = 0
+    private(set) var rebinds = 0
+    private var snapshotListener: (stream: CMIOStreamID, block: CMIOObjectPropertyListenerBlock)?
 
     private let sinkLock = NSLock()
     private var sinkQueue: CMSimpleQueue?
@@ -37,8 +42,16 @@ final class ExtensionLink {
             self.pollCount += 1
             if self.deviceID == nil {
                 self.refreshDevice()
+            } else if self.readSnapshot() == nil {
+                // The extension restarts or is replaced on every update, possibly keeping the same
+                // device ID; after 2 s of unreadable snapshots, reconnect from scratch.
+                self.failedSnapshotReads += 1
+                if self.failedSnapshotReads >= 8 {
+                    self.failedSnapshotReads = 0
+                    self.refreshDevice(force: true)
+                }
             } else {
-                self.readSnapshot()
+                self.failedSnapshotReads = 0
                 self.retrySinkIfNeeded()
             }
         }
@@ -55,40 +68,61 @@ final class ExtensionLink {
         devicesListenerInstalled = status == noErr
     }
 
-    func refreshDevice() {
+    /// Binds to OffSight Camera's current device and streams. Rebinds whenever any of their IDs
+    /// change, or when `force` is set (the extension can restart with the same device ID).
+    func refreshDevice(force: Bool = false) {
         let found = CMIO.devices().first { device in
             CMIO.deviceUID(of: device) == OffSightConstants.deviceUUID.uuidString
                 || CMIO.name(of: device) == OffSightConstants.deviceName
         }
-        guard found != deviceID else { return }
-
-        stopSink()
-        deviceID = found
-        sourceStreamID = nil
-        sinkStreamID = nil
-        guard let found else {
-            log.info("OffSight Camera not present")
-            return
-        }
-
-        for stream in CMIO.streams(of: found) {
-            switch CMIO.name(of: stream) {
-            case OffSightConstants.sourceStreamName?: sourceStreamID = stream
-            case OffSightConstants.sinkStreamName?: sinkStreamID = stream
-            default: break
+        var source: CMIOStreamID?
+        var sink: CMIOStreamID?
+        if let found {
+            for stream in CMIO.streams(of: found) {
+                switch CMIO.name(of: stream) {
+                case OffSightConstants.sourceStreamName?: source = stream
+                case OffSightConstants.sinkStreamName?: sink = stream
+                default: break
+                }
             }
         }
-        log.info("OffSight Camera found: device \(found), source \(self.sourceStreamID ?? 0), sink \(self.sinkStreamID ?? 0)")
+        guard force || found != deviceID || source != sourceStreamID || sink != sinkStreamID else { return }
 
-        if let sourceStreamID {
+        let wasConnected = deviceID != nil
+        stopSink()
+        removeSnapshotListener()
+        deviceID = found
+        sourceStreamID = source
+        sinkStreamID = sink
+        latestSnapshot = nil
+        sinkStartStatus = nil
+        guard let found else {
+            log.info("OffSight Camera not present")
+            if wasConnected { onDeviceLost?() }
+            return
+        }
+        rebinds += 1
+        log.info("OffSight Camera bound: device \(found), source \(source ?? 0), sink \(sink ?? 0) (bind #\(self.rebinds))")
+
+        if let source {
             var address = CMIO.address(snapshotSelector)
-            CMIOObjectAddPropertyListenerBlock(sourceStreamID, &address, DispatchQueue.main) { [weak self] _, _ in
+            let block: CMIOObjectPropertyListenerBlock = { [weak self] _, _ in
                 self?.listenerCallbacks += 1
                 self?.readSnapshot()
+            }
+            if CMIOObjectAddPropertyListenerBlock(source, &address, DispatchQueue.main, block) == noErr {
+                snapshotListener = (source, block)
             }
         }
         startSink()
         readSnapshot()
+    }
+
+    private func removeSnapshotListener() {
+        guard let listener = snapshotListener else { return }
+        var address = CMIO.address(snapshotSelector)
+        CMIOObjectRemovePropertyListenerBlock(listener.stream, &address, DispatchQueue.main, listener.block)
+        snapshotListener = nil
     }
 
     // MARK: Snapshot
@@ -99,6 +133,12 @@ final class ExtensionLink {
               let json = CMIO.string(of: sourceStreamID, selector: snapshotSelector),
               let snapshot = ClientSnapshot.decode(json: json) else { return nil }
         let previous = latestSnapshot
+        if let previous, previous.epoch != snapshot.epoch {
+            // A new extension instance: rebind the sink and listener to it, then re-read.
+            log.info("Extension restarted (epoch \(previous.epoch) -> \(snapshot.epoch)); rebinding")
+            DispatchQueue.main.async { self.refreshDevice(force: true) }
+            return snapshot
+        }
         latestSnapshot = snapshot
         if previous == nil || !(previous!.hasSameRouting(as: snapshot)) {
             onSnapshot?(snapshot)

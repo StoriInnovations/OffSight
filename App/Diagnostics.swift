@@ -30,7 +30,7 @@ enum Diagnostics {
         }
         lines.append("Device found: \(link.deviceID.map { String($0) } ?? "no"); source stream \(link.sourceStreamID.map { String($0) } ?? "-"); sink stream \(link.sinkStreamID.map { String($0) } ?? "-")")
         lines.append("Sink start status: \(link.sinkStartStatus.map { String($0) } ?? "not attempted") after \(link.sinkStartAttempts) attempt(s)")
-        lines.append("Snapshot listener callbacks: \(link.listenerCallbacks)")
+        lines.append("Snapshot listener callbacks: \(link.listenerCallbacks); device binds: \(link.rebinds)")
         lines.append("Capture device: \(captureDevice ?? "not configured")")
         lines.append("Feeder: sent \(feeder.framesSent), dropped \(feeder.framesDropped)")
         lines.append("")

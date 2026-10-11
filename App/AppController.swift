@@ -35,6 +35,13 @@ final class AppController: StatusMenuActions {
 
         installer.onChange = { [weak self] in self?.apply() }
         link.onSnapshot = { [weak self] snapshot in self?.handle(snapshot) }
+        link.onDeviceLost = { [weak self] in
+            guard let self else { return }
+            // No OffSight Camera means no clients: drop them so nothing waits on a stale snapshot.
+            self.snapshot = nil
+            self.engine.clientsChanged([], now: Date())
+            self.apply()
+        }
         bypass.onChange = { [weak self] in self?.apply() }
         bypass.ownCaptureRunning = { [weak self] in self?.capture.isRunningOrStopping ?? false }
 
