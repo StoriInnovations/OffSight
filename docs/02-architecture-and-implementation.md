@@ -4,7 +4,7 @@
 |--------------|--------------------------------------------------------------|
 | Document     | Architecture & Implementation Approach (AIA)                 |
 | Product      | OffSight for macOS                                           |
-| Version      | 0.1 (Draft for review)                                       |
+| Version      | 0.2 (Review decisions applied)                               |
 | Status       | **Awaiting approval**                                        |
 | Date         | 2026-10-11                                                   |
 | Based on     | [User Requirements v0.3 (approved)](01-user-requirements.md) |
@@ -321,7 +321,7 @@ offsight/
 
 | Target | Entitlements |
 |--------|--------------|
-| App (both) | `app-sandbox`, `device.camera`, `developer.system-extension.install`, `application-groups` (`<TEAMID>.<bundle-prefix>.offsight`) |
+| App (both) | `app-sandbox`, `device.camera`, `developer.system-extension.install`, `application-groups` (`$(TEAM_ID).com.storiinnovations.offsight`) |
 | App (Homebrew only) | `automation.apple-events` (for UR-34a) |
 | Extension | `app-sandbox`, `application-groups` (same group; required for the extension's Mach service name) |
 | **Never** | `network.client` and `network.server` |
@@ -426,16 +426,29 @@ These spikes run **first** (milestone M0). Each has a clear pass/fail result, an
 | **M4: Product polish** | Onboarding, settings, custom and initials placeholders, launch at login and crash restart, pause, history, uninstall, accessibility | First-run to protected in under 3 minutes; VoiceOver walkthrough passes |
 | **M5: Hardening & release** | Performance tuning, security tests, full compatibility matrix, release pipeline, TestFlight → App Store review, Homebrew tap | URD §13 acceptance criteria all pass → **v1.0** |
 
-## 18. Decisions needed from the reviewer
+## 18. Review decisions (v0.2)
 
-| # | Decision | Proposal |
-|---|----------|----------|
-| A1 | **Bundle ID prefix and Team ID**: non-secret values committed in `Config/*.xcconfig` | Provide the reverse-DNS prefix (for example `com.<yourdomain>`) and the Team ID |
-| A2 | **Several apps at once (D-1)**: while any unapproved app is connected, every app gets the placeholder | Accept. It is the only safe option on a shared stream. |
-| A3 | **App Store build shows the browser name only** (no tab/site name) | Accept. It meets UR-34a as best effort; revisit if the entitlement is approved. |
-| A4 | **Sleep ends all sessions** (rule R5): prompt again after wake | Accept |
-| A5 | **One third-party dependency** (`KeyboardShortcuts`, MIT) | Accept. The alternative is writing our own Carbon wrapper and shortcut recorder. |
-| A6 | **Project Homebrew tap** `astatine-/homebrew-offsight` before submitting to the main cask repository | Accept |
+| # | Decision | Outcome |
+|---|----------|---------|
+| A1 | Identifiers | Bundle ID prefix **`com.storiinnovations`** (see the table below). Team ID: the 10-character value from the Apple Developer account; it will be added to `Config/Signing.xcconfig` in M0. |
+| A2 | Several apps at once (D-1) | **Accepted.** While any unapproved app is connected, every app gets the placeholder. |
+| A3 | App Store build shows the browser name only | **Accepted.** |
+| A4 | Sleep ends all sessions (R5) | **Accepted.** |
+| A5 | `KeyboardShortcuts` (MIT) as the only third-party dependency | **Accepted.** |
+| A6 | Project Homebrew tap `astatine-/homebrew-offsight` first | **Accepted.** |
+
+**Identifiers:**
+
+| Item | Value |
+|------|-------|
+| App bundle ID | `com.storiinnovations.offsight` |
+| Camera extension bundle ID | `com.storiinnovations.offsight.camera-extension` |
+| App group | `$(TEAM_ID).com.storiinnovations.offsight` |
+| Extension Mach service name | `$(TEAM_ID).com.storiinnovations.offsight.camera-extension` (must start with the app group) |
+| Code-signing requirement checked by the sink (§4.1) | `anchor apple generic and identifier "com.storiinnovations.offsight" and certificate leaf[subject.OU] = "$(TEAM_ID)"` |
+| Homebrew cask | `offsight` in tap `astatine-/homebrew-offsight` |
+
+The Team ID is the only value still to fill in. It isn't secret and is written into every signed binary, so it can be committed. Signing certificates, keys and profiles are secret and are never committed (§13.1).
 
 ## 19. Approval
 
