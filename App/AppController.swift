@@ -116,7 +116,15 @@ final class AppController: StatusMenuActions {
         menu.camerasBypassed = bypass.camerasInUse
         menu.bypassSuspects = bypass.bypassDetected ? bypassSuspects() : []
         menu.pausedUntil = engine.pausedUntil
-        menu.extensionStatus = link.isConnected ? "Connected" : installer.state.label
+        if link.isConnected {
+            menu.extensionStatus = "Connected"
+        } else if installer.state == .activated {
+            // Installed and enabled but no device: a replaced camera extension can stay stopped
+            // until the next restart.
+            menu.extensionStatus = "Installed but not running — restart the Mac if this persists"
+        } else {
+            menu.extensionStatus = installer.state.label
+        }
         menu.extensionNeedsApproval = installer.state == .needsUserApproval
         menu.cameraAccessDenied = CameraCapture.authorizationStatus == .denied
         statusItem?.update(menu)

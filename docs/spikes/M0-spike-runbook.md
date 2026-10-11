@@ -34,6 +34,10 @@ To watch the logs live while testing:
 log stream --predicate 'subsystem == "com.storiinnovations.offsight"' --level info
 ```
 
+### After updates
+
+`dev-install.sh` replaces the camera extension only when the extension's code has changed. App-only changes leave it alone. When the extension *is* replaced, macOS stops the old one but may not start the new one until the Mac restarts. The script says so, and the OffSight menu then shows **"Installed but not running — restart the Mac if this persists"**. Restart once and it comes up.
+
 ## 3. Basic flow (Zoom first)
 
 | Step | Expected |
