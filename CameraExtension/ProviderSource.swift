@@ -42,3 +42,12 @@ final class ProviderSource: NSObject, CMIOExtensionProviderSource {
 
     func setProviderProperties(_ providerProperties: CMIOExtensionProviderProperties) throws {}
 }
+
+extension CMIOExtensionClient {
+    /// The client's signing ID, or nil when CoreMediaIO does not provide one.
+    /// Spike S2 found that macOS reports the literal string "unknown" for every client.
+    var knownSigningID: String? {
+        guard let id = signingID, !id.isEmpty, id != "unknown" else { return nil }
+        return id
+    }
+}

@@ -101,7 +101,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
 
     func sourceClientStarting(_ client: CMIOExtensionClient) {
         lock.lock()
-        tracker.clientStarting(clientID: client.clientID, pid: client.pid, signingID: client.signingID, now: Self.hostSeconds())
+        tracker.clientStarting(clientID: client.clientID, pid: client.pid, signingID: client.knownSigningID, now: Self.hostSeconds())
         gate.advanceGeneration()
         lock.unlock()
         log.info("Source start requested by pid=\(client.pid) signingID=\(client.signingID ?? "nil", privacy: .public)")
@@ -212,7 +212,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
     // MARK: Sink (frames from OffSight.app)
 
     func authorizeSinkClient(_ client: CMIOExtensionClient) -> Bool {
-        let result = SinkAuthenticator.authenticate(pid: client.pid, signingID: client.signingID)
+        let result = SinkAuthenticator.authenticate(pid: client.pid, signingID: client.knownSigningID)
         lock.lock()
         sinkAuthMode = result.mode
         if result.ok {
