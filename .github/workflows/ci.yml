@@ -62,8 +62,8 @@ jobs:
           HELP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app/Contents/Resources/Help"
           ls "$HELP" "$HELP/images"
           test -f "$HELP/index.html"
-          # Every image the page references must be in the bundle.
-          for img in $(grep -oE 'images/[A-Za-z0-9._-]+' "$HELP/index.html" | sort -u); do
+          # Every image the page references (outside HTML comments) must be in the bundle.
+          for img in $(perl -0pe 's/<!--.*?-->//gs' "$HELP/index.html" | grep -oE 'images/[A-Za-z0-9._-]+' | sort -u); do
             test -f "$HELP/$img" || { echo "::error::Help page references missing $img"; exit 1; }
           done
       - name: Camera extension does not link AppKit
