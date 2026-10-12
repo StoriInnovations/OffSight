@@ -59,7 +59,9 @@ struct SettingsView: View {
                 .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
         }
         .padding(20)
-        .frame(width: 500)
+        // Grouped forms scroll and have no natural height of their own, so the window needs a
+        // fixed size (without one it collapses to just the tab bar).
+        .frame(width: 540, height: 500)
         .onAppear(perform: model.refresh)
     }
 }
