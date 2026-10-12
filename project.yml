@@ -61,6 +61,11 @@ targets:
         excludes:
           - "Info.plist"
           - "*.entitlements"
+          - "Help/**"
+      # Help page and its images, copied as a folder to Contents/Resources/Help.
+      - path: App/Help
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: OffSightCore
       - target: OffSightCameraExtension

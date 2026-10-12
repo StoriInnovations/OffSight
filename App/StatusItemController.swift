@@ -33,6 +33,7 @@ protocol StatusMenuActions: AnyObject {
     func copyDiagnostics()
     func openVideoEffects()
     func openSettings()
+    func openHelp()
     func openAbout()
     #if DEBUG
     func forceProtectionState(_ state: ProtectionState?)
@@ -200,6 +201,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("Video Effects for Live Video…") { $0.openVideoEffects() })
         menu.addItem(item("Settings…") { $0.openSettings() })
+        menu.addItem(item("OffSight Help") { $0.openHelp() })
         menu.addItem(item("About OffSight") { $0.openAbout() })
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit OffSight (meeting apps keep the placeholder)",

@@ -288,6 +288,7 @@ final class AppController: StatusMenuActions {
 
     func openSettings() { settingsWindow.show() }
     func openAbout() { aboutWindow.show() }
+    func openHelp() { Help.open() }
 
     #if DEBUG
     func forceProtectionState(_ state: ProtectionState?) {
