@@ -69,7 +69,7 @@ Then repeat the flow with **Teams**, **Webex** and **Google Meet in Chrome** (an
 
 ## 5. Results to send back
 
-Copy this table, fill it in, and paste it together with the **Copy diagnostics** output for each app:
+Copy this table, fill it in, and paste it together with the **Copy Diagnostics** output (OffSight › Settings › Advanced) for each app:
 
 | App | Named correctly? | Placeholder OK? | Prompt shown? | Go live works? | Close shutter OK? | New prompt after rejoin? | Notes |
 |-----|------------------|-----------------|---------------|----------------|-------------------|--------------------------|-------|

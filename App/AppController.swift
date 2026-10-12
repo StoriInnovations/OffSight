@@ -290,11 +290,6 @@ final class AppController: StatusMenuActions {
     func openAbout() { aboutWindow.show() }
     func openHelp() { Help.open() }
 
-    #if DEBUG
-    func forceProtectionState(_ state: ProtectionState?) {
-        statusItem?.force(state)
-    }
-    #endif
 
     func copyDiagnostics() {
         let report = Diagnostics.report(

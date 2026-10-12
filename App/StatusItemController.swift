@@ -30,14 +30,9 @@ protocol StatusMenuActions: AnyObject {
     func resumeProtection()
     func openExtensionApproval()
     func openCameraPrivacySettings()
-    func copyDiagnostics()
-    func openVideoEffects()
     func openSettings()
     func openHelp()
     func openAbout()
-    #if DEBUG
-    func forceProtectionState(_ state: ProtectionState?)
-    #endif
 }
 
 /// Menu bar icon and menu (UR-13, UR-16, UR-20…22, UR-35a). Uses the brand glyphs from the asset
@@ -49,10 +44,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private var displayedState: ProtectionState?
     private var displayedColoured: Bool?
     private var colourObservation: NSKeyValueObservation?
-    #if DEBUG
-    /// Set from the debug menu to preview each icon; nil follows the real state.
-    private(set) var forcedState: ProtectionState?
-    #endif
 
     init(actions: StatusMenuActions) {
         self.actions = actions
@@ -71,19 +62,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         renderIcon()
     }
 
-    #if DEBUG
-    func force(_ forced: ProtectionState?) {
-        forcedState = forced
-        renderIcon()
-    }
-    #endif
-
-    private var effectiveState: ProtectionState {
-        #if DEBUG
-        if let forcedState { return forcedState }
-        #endif
-        return state.protectionState
-    }
+    private var effectiveState: ProtectionState { state.protectionState }
 
     /// Updates the icon only when the state or colour mode changes, on the main thread.
     private func renderIcon() {
@@ -194,12 +173,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if state.extensionNeedsApproval {
             menu.addItem(item("Approve OffSight Camera in System Settings…") { $0.openExtensionApproval() })
         }
-        menu.addItem(item("Copy diagnostics") { $0.copyDiagnostics() })
-        #if DEBUG
-        menu.addItem(debugMenuItem())
-        #endif
         menu.addItem(.separator())
-        menu.addItem(item("Video Effects for Live Video…") { $0.openVideoEffects() })
         menu.addItem(item("Settings…") { $0.openSettings() })
         menu.addItem(item("OffSight Help") { $0.openHelp() })
         menu.addItem(item("About OffSight") { $0.openAbout() })
@@ -208,25 +182,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
-    #if DEBUG
-    /// Debug only: force each ProtectionState to check the five icons (and their coloured variants).
-    private func debugMenuItem() -> NSMenuItem {
-        let debugItem = NSMenuItem(title: "Debug: Force icon state", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        let automatic = item("Automatic (follow real state)") { $0.forceProtectionState(nil) }
-        automatic.state = forcedState == nil ? .on : .off
-        submenu.addItem(automatic)
-        submenu.addItem(.separator())
-        for candidate in [ProtectionState.idle, .protected, .live, .unprotected, .paused] {
-            let entry = item(candidate.accessibilityDescription) { $0.forceProtectionState(candidate) }
-            entry.state = forcedState == candidate ? .on : .off
-            entry.image = Self.image(for: candidate, coloured: UserDefaults.standard.useColouredStatusIcon)
-            submenu.addItem(entry)
-        }
-        debugItem.submenu = submenu
-        return debugItem
-    }
-    #endif
 
     private func disabled(_ title: String) -> NSMenuItem {
         let menuItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
