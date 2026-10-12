@@ -114,4 +114,29 @@ final class FrameGateTests: XCTestCase {
         XCTAssertFalse(OffSightConstants.isAcceptableFormat(Dimensions(width: 7680, height: 4320)))
         XCTAssertFalse(OffSightConstants.isAcceptableFormat(Dimensions(width: 1921, height: 1080)))
     }
+
+    func testEffectsFreeFormat() {
+        func free(_ width: Int, _ height: Int) -> Dimensions {
+            OffSightConstants.effectsFreeFormat(for: Dimensions(width: width, height: height))
+        }
+        XCTAssertEqual(free(1920, 1080), Dimensions(width: 2560, height: 1440))
+        XCTAssertEqual(free(1280, 720), Dimensions(width: 2560, height: 1440))
+        XCTAssertEqual(free(1440, 1080), Dimensions(width: 1920, height: 1440))
+        XCTAssertEqual(free(640, 480), Dimensions(width: 1920, height: 1440))
+        XCTAssertEqual(free(1920, 1200), Dimensions(width: 2304, height: 1440))
+        XCTAssertEqual(free(3840, 2160), Dimensions(width: 3840, height: 2160), "already large enough")
+        XCTAssertEqual(free(2560, 1440), Dimensions(width: 2560, height: 1440))
+        XCTAssertEqual(free(3840, 1080), Dimensions(width: 3840, height: 1080), "too wide to scale: unchanged")
+        XCTAssertEqual(free(1, 1), OffSightConstants.defaultFormat)
+        for native in [Dimensions(width: 1920, height: 1080), Dimensions(width: 1280, height: 960),
+                       Dimensions(width: 1552, height: 1552), Dimensions(width: 1366, height: 768)] {
+            let format = OffSightConstants.effectsFreeFormat(for: native)
+            XCTAssertTrue(OffSightConstants.isAcceptableFormat(format), "\(native) -> \(format)")
+            XCTAssertGreaterThanOrEqual(format.width, 1920)
+            XCTAssertGreaterThanOrEqual(format.height, 1440)
+            XCTAssertEqual(Double(format.width) / Double(format.height),
+                           Double(native.width) / Double(native.height), accuracy: 0.01, "keeps its shape")
+        }
+        XCTAssertTrue(OffSightConstants.isAcceptableFormat(OffSightConstants.defaultFormat))
+    }
 }

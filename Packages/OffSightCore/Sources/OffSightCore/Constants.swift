@@ -25,9 +25,31 @@ public enum OffSightConstants {
 
     public static let frameRate: Int32 = 30
 
-    /// OffSight Camera offers exactly one format: the native size of the physical camera used as the
-    /// live source, reported by OffSight.app. This is used until the first report arrives.
-    public static let defaultFormat = Dimensions(width: 1920, height: 1080)
+    /// OffSight Camera offers exactly one format, `effectsFreeFormat(for:)` of the physical camera
+    /// used as the live source, reported by OffSight.app. This is used until the first report arrives.
+    public static let defaultFormat = Dimensions(width: 2560, height: 1440)
+
+    /// macOS applies the user's video effects (Portrait, Background, Studio Light…) per app to any
+    /// camera, virtual ones included, but only to video smaller than 1920×1440 (Apple forum thread
+    /// 805786). Those effects blank the placeholder. OffSight Camera therefore never advertises a
+    /// size below that: a camera that is smaller is scaled up, keeping its shape (1920×1080 →
+    /// 2560×1440, 4:3 → 1920×1440). Live video loses no detail; effects for live video are applied
+    /// on OffSight's own capture of the physical camera instead.
+    public static let effectsMinimum = Dimensions(width: 1920, height: 1440)
+
+    public static func effectsFreeFormat(for native: Dimensions) -> Dimensions {
+        guard isAcceptableFormat(native) else { return defaultFormat }
+        let scale = max(1, Double(effectsMinimum.width) / Double(native.width),
+                        Double(effectsMinimum.height) / Double(native.height))
+        func scaled(_ value: Int, minimum: Int) -> Int {
+            let result = max(minimum, Int((Double(value) * scale).rounded()))
+            return result % 2 == 0 ? result : result + 1
+        }
+        let format = Dimensions(width: scaled(native.width, minimum: effectsMinimum.width),
+                                height: scaled(native.height, minimum: effectsMinimum.height))
+        // A camera so wide that scaling it up exceeds the limits keeps its own size.
+        return isAcceptableFormat(format) ? format : native
+    }
 
     /// Sanity limits for a reported camera format.
     public static func isAcceptableFormat(_ format: Dimensions) -> Bool {

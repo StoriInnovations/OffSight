@@ -99,7 +99,7 @@ final class AppController: StatusMenuActions {
             feeder.update(SinkFeeder.Config(sendLive: live, sendPlaceholder: anyClientStreaming && !live,
                                             epoch: snapshot.epoch, generation: snapshot.generation,
                                             format: snapshot.activeFormat))
-            requestNativeFormatIfNeeded()
+            requestCameraFormatIfNeeded()
         } else {
             feeder.update(nil)
         }
@@ -135,14 +135,16 @@ final class AppController: StatusMenuActions {
         statusItem?.update(menu)
     }
 
-    /// OffSight Camera should advertise the live camera's native size. If it doesn't yet, ask the
-    /// extension (it applies the change once no app is using the camera). Throttled to every 5 s.
-    private func requestNativeFormatIfNeeded() {
+    /// OffSight Camera should advertise the live camera's native size, scaled up where needed so
+    /// macOS video effects can't blank the placeholder (`effectsFreeFormat`). If it doesn't yet, ask
+    /// the extension (it applies the change once no app is using the camera). Throttled to every 5 s.
+    private func requestCameraFormatIfNeeded() {
         guard let native = capture.nativeFormat, let latest = link.latestSnapshot, latest.sinkConnected,
-              latest.activeFormat != native, latest.pendingFormat != native,
               Date() >= nextFormatRequest else { return }
+        let wanted = OffSightConstants.effectsFreeFormat(for: native)
+        guard latest.activeFormat != wanted, latest.pendingFormat != wanted else { return }
         nextFormatRequest = Date().addingTimeInterval(5)
-        feeder.requestFormat(native, epoch: latest.epoch)
+        feeder.requestFormat(wanted, epoch: latest.epoch)
     }
 
     private func name(of app: AppKey) -> String {
@@ -196,6 +198,13 @@ final class AppController: StatusMenuActions {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func openVideoEffects() {
+        // Effects chosen here apply to OffSight's own capture of the physical camera, so they reach
+        // meeting apps with the live video and never touch the placeholder.
+        NSApp.activate(ignoringOtherApps: true)
+        AVCaptureDevice.showSystemUserInterface(.videoEffects)
     }
 
     func openSettings() { settingsWindow.show() }

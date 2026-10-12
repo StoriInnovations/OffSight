@@ -33,6 +33,7 @@ protocol StatusMenuActions: AnyObject {
     func openExtensionApproval()
     func openCameraPrivacySettings()
     func copyDiagnostics()
+    func openVideoEffects()
     func openSettings()
     func openAbout()
     #if DEBUG
@@ -203,6 +204,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(placeholderTestMenuItem())
         #endif
         menu.addItem(.separator())
+        menu.addItem(item("Video Effects for Live Video…") { $0.openVideoEffects() })
         menu.addItem(item("Settings…") { $0.openSettings() })
         menu.addItem(item("About OffSight") { $0.openAbout() })
         menu.addItem(.separator())
