@@ -6,6 +6,8 @@ Protect yourself from accidentally sharing your camera in virtual meetings on Zo
 
 Requirements, architecture and the Apple account setup are in [`docs/`](docs/). Milestone **M0** (project skeleton + first working slice with the built-in camera) is in progress. See the [M0 runbook](docs/spikes/M0-spike-runbook.md).
 
+For people using OffSight: the [User Guide](docs/help/user-guide.md) covers setup, choosing OffSight Camera in each meeting app, everyday use, settings and troubleshooting.
+
 ## Building (developers)
 
 Requires macOS 13+, Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
