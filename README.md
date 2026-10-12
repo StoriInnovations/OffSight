@@ -19,3 +19,5 @@ swift test --package-path Packages/OffSightCore   # core logic unit tests
 ```
 
 Signing identifiers live in `Config/Signing.xcconfig`. **Never** commit certificates, keys, profiles or passwords.
+
+Project site (GitHub Pages, published from [`site/`](site/) plus the help page): home, [privacy policy](site/privacy.html) and [support](site/support.html). Security reports: see [SECURITY.md](SECURITY.md). OffSight is provided as is, without warranty or guaranteed support.

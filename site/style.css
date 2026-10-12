@@ -1,0 +1,74 @@
+/* OffSight project site: privacy policy, support and landing page. Brand colours from the design handoff. */
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --surface: #f5f6f8;
+  --border: #dfe2e7;
+  --text: #1c2129;
+  --muted: #5b6573;
+  --accent: #2f8580;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #191d24;
+    --surface: #212731;
+    --border: #333b47;
+    --text: #eceef1;
+    --muted: #a3acb8;
+    --accent: #6fc7c2;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #191d24;
+  --surface: #212731;
+  --border: #333b47;
+  --text: #eceef1;
+  --muted: #a3acb8;
+  --accent: #6fc7c2;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+
+header.site { border-bottom: 1px solid var(--border); }
+header.site .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 14px; padding-bottom: 14px; }
+header.site img { height: 30px; width: auto; display: block; }
+header.site nav { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14.5px; }
+header.site nav a { color: var(--muted); text-decoration: none; }
+header.site nav a:hover, header.site nav a[aria-current="page"] { color: var(--text); }
+
+main { padding: 32px 0 56px; }
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; }
+h2 { font-size: 20px; margin: 36px 0 8px; }
+p, li { max-width: 68ch; }
+a { color: var(--accent); }
+.lead { font-size: 18.5px; color: var(--text); }
+.meta { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+
+.callout {
+  background: var(--surface); border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 20px 0;
+}
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 24px 0; }
+.card {
+  display: block; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--text); text-decoration: none;
+}
+.card strong { display: block; margin-bottom: 2px; }
+.card span { color: var(--muted); font-size: 14.5px; }
+.card:hover { border-color: var(--accent); }
+
+figure { margin: 24px 0; }
+figure img { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--border); display: block; }
+figcaption { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+
+footer.site { border-top: 1px solid var(--border); color: var(--muted); font-size: 13.5px; }
+footer.site .wrap { padding-top: 18px; padding-bottom: 28px; }
+footer.site a { color: var(--muted); }

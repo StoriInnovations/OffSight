@@ -1,0 +1,59 @@
+# Publishes the project site (site/) and the in-app help page (App/Help) to GitHub Pages.
+# One-time setup: repository Settings → Pages → Source: "GitHub Actions".
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "App/Help/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -R site/. _site/
+          # The help page is the same file the app bundles, so there is one copy to maintain.
+          cp -R App/Help _site/help
+          touch _site/.nojekyll
+          ls -R _site
+      - name: Check local links
+        run: |
+          cd _site
+          status=0
+          for page in $(find . -name '*.html'); do
+            dir=$(dirname "$page")
+            for ref in $(perl -0pe 's/<!--.*?-->//gs' "$page" | grep -oE '(href|src|srcset)="[^"#?]+' | sed -E 's/^[a-z]+="//' | grep -vE '^(https?:|mailto:|x-apple)'); do
+              [ -e "$dir/$ref" ] || { echo "::error file=$page::broken link $ref"; status=1; }
+            done
+          done
+          exit $status
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
