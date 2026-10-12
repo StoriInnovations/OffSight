@@ -10,13 +10,14 @@ import VideoToolbox
 /// Sends frames into the extension's sink (architecture §5.2):
 /// - approved live frames, scaled to the active format and tagged with the epoch/generation the
 ///   approval decision was made for;
-/// - otherwise, while any app uses OffSight Camera, the brand placeholder at 30 fps. Photo Booth
+/// - otherwise, while any app uses OffSight Camera, the placeholder at 30 fps: the user's own image
+///   (UR-26) or the built-in artwork. Photo Booth
 ///   and Teams display frames arriving this way, but not frames the extension generates itself.
 final class SinkFeeder {
     /// Debug test patterns for diagnosing apps that do not display the placeholder.
     enum PlaceholderStyle: String, CaseIterable {
-        case brand = "Brand placeholder"
-        case brandWithMovingBar = "Brand + moving bar"
+        case brand = "Placeholder (as chosen in Settings)"
+        case brandWithMovingBar = "Placeholder + moving bar"
         case brightGrey = "Bright grey (static)"
     }
 
@@ -36,6 +37,7 @@ final class SinkFeeder {
     private var livePool: PoolCache
     private var placeholderPool: PoolCache
     private var placeholderMasters: [String: CVPixelBuffer] = [:]
+    private var placeholderRevision = -1
     /// What the last rendered placeholder contains (diagnostics).
     private(set) var placeholderDescription = "not rendered yet"
     private var placeholderTimer: DispatchSourceTimer?
@@ -165,14 +167,24 @@ final class SinkFeeder {
         }
     }
 
+    /// Placeholder queue only. Rendered once per format, test pattern and placeholder choice.
     private func placeholderMaster(for format: Dimensions, style: PlaceholderStyle) -> CVPixelBuffer? {
-        let key = "\(format.description)|\(style == .brightGrey ? "grey" : "brand")"
+        let revision = PlaceholderImageStore.revision
+        if revision != placeholderRevision {
+            // The user picked another image: drop renderings of the old one.
+            placeholderMasters.removeAll()
+            placeholderRevision = revision
+        }
+        let key = "\(format.description)|\(style == .brightGrey ? "grey" : "image")"
         if let cached = placeholderMasters[key] { return cached }
-        let image: CGImage?
+        var image: CGImage?
         let source: String
         if style == .brightGrey {
             image = Self.solidImage(grey: 0.5)
             source = "solid grey"
+        } else if let custom = PlaceholderImageStore.loadImage() {
+            image = custom
+            source = "custom image \(custom.width)x\(custom.height)"
         } else {
             let artwork = PlaceholderLayout.artwork(for: format)
             image = Self.cgImage(named: artwork.assetName)
