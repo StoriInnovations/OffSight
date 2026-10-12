@@ -44,11 +44,21 @@ APP="build/DerivedData/Build/Products/Debug/OffSight.app"
 echo "Built $APP (app build $BUILD_NUMBER, camera extension build $EXTENSION_BUILD)"
 codesign -dv --verbose=2 "$APP" 2>&1 | grep -E "Identifier|TeamIdentifier|Authority=Apple Development" || true
 
+# Quit the running copy and wait for it to exit: replacing or opening the app while the old
+# process is still shutting down makes Launch Services fail with error -600.
 pkill -x OffSight 2>/dev/null || true
+for _ in $(seq 1 50); do pgrep -x OffSight >/dev/null || break; sleep 0.1; done
 rm -rf /Applications/OffSight.app
 cp -R "$APP" /Applications/
 echo "Installed to /Applications/OffSight.app — launching"
-open /Applications/OffSight.app
+launched=no
+for attempt in 1 2 3; do
+  if open /Applications/OffSight.app 2>/dev/null; then launched=yes; break; fi
+  sleep "$attempt"
+done
+if [[ "$launched" == no ]]; then
+  echo "Could not launch OffSight automatically. Open it from Applications." >&2
+fi
 if [[ "$EXTENSION_CHANGED" == yes ]]; then
   echo
   echo "The camera extension changed, so macOS will replace it. If OffSight Camera does not"
