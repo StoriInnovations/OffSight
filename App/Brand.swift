@@ -51,19 +51,3 @@ extension ProtectionState {
         }
     }
 }
-
-/// User defaults owned by the app UI.
-enum AppDefaults {
-    static let useColouredStatusIconKey = "useColouredStatusIcon"
-
-    static func register() {
-        UserDefaults.standard.register(defaults: [useColouredStatusIconKey: false])
-    }
-}
-
-extension UserDefaults {
-    /// KVO-observable mirror of the "useColouredStatusIcon" default (the property name must match the key).
-    @objc dynamic var useColouredStatusIcon: Bool {
-        bool(forKey: AppDefaults.useColouredStatusIconKey)
-    }
-}

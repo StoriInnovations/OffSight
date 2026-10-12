@@ -40,7 +40,12 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     /// else its largest 4:3 mode, else its largest mode of any shape. (A MacBook Pro camera's largest
     /// mode is a square Center Stage mode, which meeting apps should not get.) OffSight Camera
     /// advertises exactly this size, so live frames pass through unscaled.
-    private(set) lazy var nativeFormat: Dimensions? = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }
+    private(set) var nativeFormat: Dimensions?
+
+    override init() {
+        super.init()
+        nativeFormat = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }
+    }
 
     private static func nativeMode(of device: AVCaptureDevice) -> (format: AVCaptureDevice.Format, dimensions: Dimensions)? {
         let candidates = device.formats
@@ -70,8 +75,17 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             ?? largest(candidates)
     }
 
-    /// Built-in camera first (initial scope), then any other physical camera.
+    /// Physical cameras the user can choose as the live source (UR-31).
+    static func availableCameras() -> [(id: String, name: String)] {
+        BypassMonitor.physicalCameras().map { (id: $0.uniqueID, name: $0.localizedName) }
+    }
+
+    /// The camera chosen in Settings if it is connected; otherwise the built-in camera first,
+    /// then any other physical camera.
     private func selectDevice() -> AVCaptureDevice? {
+        if let id = AppDefaults.liveCameraID, let chosen = AVCaptureDevice(uniqueID: id) {
+            return chosen
+        }
         if let builtIn = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .unspecified) {
             return builtIn
         }
@@ -125,6 +139,25 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             log.error("Camera input failed: \(error.localizedDescription, privacy: .public)")
             return false
         }
+    }
+
+    /// Drops the current camera so the next use picks up the camera chosen in Settings.
+    /// Main thread; any live video stops until the next `setRunning(true)`.
+    func reselectCamera() {
+        controlQueue.sync { [session] in
+            if session.isRunning { session.stopRunning() }
+            session.beginConfiguration()
+            session.inputs.forEach(session.removeInput)
+            session.outputs.forEach(session.removeOutput)
+            session.commitConfiguration()
+        }
+        if isRunning { lastStopRequestedAt = Date() }
+        wantsRunning = false
+        isRunning = false
+        isConfigured = false
+        deviceName = nil
+        nativeFormat = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }
+        log.info("Live camera reselected: \(self.selectDevice()?.localizedName ?? "none", privacy: .public)")
     }
 
     func setRunning(_ run: Bool) {

@@ -28,8 +28,6 @@ protocol StatusMenuActions: AnyObject {
     func closeAllShutters()
     func pause(minutes: Int)
     func resumeProtection()
-    func installExtension()
-    func removeExtension()
     func openExtensionApproval()
     func openCameraPrivacySettings()
     func copyDiagnostics()
@@ -38,8 +36,6 @@ protocol StatusMenuActions: AnyObject {
     func openAbout()
     #if DEBUG
     func forceProtectionState(_ state: ProtectionState?)
-    func setPlaceholderStyle(_ style: SinkFeeder.PlaceholderStyle)
-    var placeholderStyle: SinkFeeder.PlaceholderStyle { get }
     #endif
 }
 
@@ -176,7 +172,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
-        menu.addItem(item("Close all shutters") { $0.closeAllShutters() })
+        let panic = AppDefaults.shortcut(forKey: AppDefaults.panicShortcutKey).map { "  \($0.displayString)" } ?? ""
+        menu.addItem(item("Close all shutters\(panic)") { $0.closeAllShutters() })
         if let until = state.pausedUntil {
             let formatter = DateFormatter()
             formatter.timeStyle = .short
@@ -196,12 +193,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if state.extensionNeedsApproval {
             menu.addItem(item("Approve OffSight Camera in System Settings…") { $0.openExtensionApproval() })
         }
-        menu.addItem(item("Install / update camera extension") { $0.installExtension() })
-        menu.addItem(item("Remove camera extension") { $0.removeExtension() })
         menu.addItem(item("Copy diagnostics") { $0.copyDiagnostics() })
         #if DEBUG
         menu.addItem(debugMenuItem())
-        menu.addItem(placeholderTestMenuItem())
         #endif
         menu.addItem(.separator())
         menu.addItem(item("Video Effects for Live Video…") { $0.openVideoEffects() })
@@ -229,20 +223,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
         debugItem.submenu = submenu
         return debugItem
-    }
-
-    /// Debug only: switch the placeholder between test patterns.
-    private func placeholderTestMenuItem() -> NSMenuItem {
-        let menuItem = NSMenuItem(title: "Debug: Placeholder test pattern", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        let current = actions?.placeholderStyle
-        for style in SinkFeeder.PlaceholderStyle.allCases {
-            let entry = item(style.rawValue) { $0.setPlaceholderStyle(style) }
-            entry.state = current == style ? .on : .off
-            submenu.addItem(entry)
-        }
-        menuItem.submenu = submenu
-        return menuItem
     }
     #endif
 

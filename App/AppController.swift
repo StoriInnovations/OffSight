@@ -20,12 +20,23 @@ final class AppController: StatusMenuActions {
     private var snapshot: ClientSnapshot?
     private var resolvedApps: [AppKey: ResolvedApp] = [:]
     private var nextFormatRequest = Date.distantPast
-    private lazy var settingsWindow = HostedWindowController(title: "OffSight Settings") { SettingsView() }
+    private let shortcuts = GlobalShortcuts()
+    private let notifier = SessionNotifier()
+    private let settingsModel = SettingsModel()
+    /// Settings values last applied, to react only to real changes.
+    private var appliedPolicySettings = PolicySettings()
+    private var appliedCameraID: String?
+    private var appliedShortcuts: [GlobalShortcuts.Action: KeyboardShortcut?] = [:]
+    private lazy var settingsWindow = HostedWindowController(title: "OffSight Settings") { [settingsModel] in
+        SettingsView(model: settingsModel)
+    }
     private lazy var aboutWindow = HostedWindowController(title: "About OffSight") { AboutView() }
 
     func start() {
         AppDefaults.register()
+        LaunchAtLogin.applyDefaultOnFirstRun()
         statusItem = StatusItemController(actions: self)
+        wireSettings()
 
         capture.onFrame = { [weak self] frame in self?.feeder.handle(frame) }
         prompts.model.onApprove = { [weak self] app in self?.goLive(app) }
@@ -66,6 +77,70 @@ final class AppController: StatusMenuActions {
             self?.apply()
         }
         apply()
+    }
+
+    // MARK: Settings
+
+    private func wireSettings() {
+        settingsModel.openVideoEffects = { [weak self] in self?.openVideoEffects() }
+        settingsModel.installExtension = { [weak self] in self?.installer.activate() }
+        settingsModel.removeExtension = { [weak self] in self?.installer.deactivate() }
+        settingsModel.openExtensionApproval = { [weak self] in self?.openExtensionApproval() }
+        settingsModel.openCameraPrivacySettings = { [weak self] in self?.openCameraPrivacySettings() }
+        settingsModel.copyDiagnostics = { [weak self] in self?.copyDiagnostics() }
+
+        shortcuts.onAction = { [weak self] action in
+            guard let self else { return }
+            switch action {
+            case .closeAllShutters:
+                self.log.info("Close-all-shutters shortcut")
+                self.closeAllShutters()
+            case .goLiveForPrompted:
+                // Only when exactly one app is asking, so the shortcut can't approve the wrong one (UR-10, UR-15).
+                let pending = self.engine.pendingPrompts
+                guard pending.count == 1, let app = pending.first?.app else {
+                    self.log.info("Go-live shortcut ignored: \(pending.count) app(s) asking")
+                    return
+                }
+                self.goLive(app)
+            }
+        }
+
+        appliedCameraID = AppDefaults.liveCameraID
+        settingsChanged()
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil,
+                                               queue: .main) { [weak self] _ in self?.settingsChanged() }
+    }
+
+    /// Applies settings that changed (UserDefaults posts this for every write, so compare first).
+    private func settingsChanged() {
+        let policy = AppDefaults.policySettings
+        if policy != appliedPolicySettings {
+            appliedPolicySettings = policy
+            engine.updateSettings(policy)
+            log.info("Prompt expiry \(policy.promptExpiry) s, grace period \(policy.gracePeriod) s")
+        }
+
+        let cameraID = AppDefaults.liveCameraID
+        if cameraID != appliedCameraID {
+            appliedCameraID = cameraID
+            capture.reselectCamera()
+            apply()
+        }
+
+        var problems: [String] = []
+        for (action, key) in [(GlobalShortcuts.Action.closeAllShutters, AppDefaults.panicShortcutKey),
+                              (.goLiveForPrompted, AppDefaults.goLiveShortcutKey)] {
+            let shortcut = AppDefaults.shortcut(forKey: key)
+            guard appliedShortcuts[action] != .some(shortcut) else { continue }
+            appliedShortcuts[action] = .some(shortcut)
+            if !shortcuts.set(shortcut, for: action), let shortcut {
+                problems.append("\(shortcut.displayString) is already used by another app. Choose a different shortcut.")
+            }
+        }
+        if !problems.isEmpty || settingsModel.shortcutProblem != nil {
+            settingsModel.shortcutProblem = problems.isEmpty ? nil : problems.joined(separator: "\n")
+        }
     }
 
     // MARK: Snapshot → policy
@@ -133,6 +208,12 @@ final class AppController: StatusMenuActions {
         menu.extensionNeedsApproval = installer.state == .needsUserApproval
         menu.cameraAccessDenied = CameraCapture.authorizationStatus == .denied
         statusItem?.update(menu)
+        if settingsModel.extensionStatus != menu.extensionStatus {
+            settingsModel.extensionStatus = menu.extensionStatus
+        }
+
+        let liveApps = live ? Set(engine.activeSessions.filter { $0.phase == .live }.map(\.app)) : []
+        notifier.update(live: liveApps, active: Set(engine.activeSessions.map(\.app)), name: name(of:))
     }
 
     /// OffSight Camera should advertise the live camera's native size, scaled up where needed so
@@ -190,8 +271,6 @@ final class AppController: StatusMenuActions {
         apply()
     }
 
-    func installExtension() { installer.activate() }
-    func removeExtension() { installer.deactivate() }
     func openExtensionApproval() { installer.openApprovalSettings() }
 
     func openCameraPrivacySettings() {
@@ -214,13 +293,6 @@ final class AppController: StatusMenuActions {
     func forceProtectionState(_ state: ProtectionState?) {
         statusItem?.force(state)
     }
-
-    func setPlaceholderStyle(_ style: SinkFeeder.PlaceholderStyle) {
-        feeder.placeholderStyle = style
-        log.notice("Placeholder test pattern: \(style.rawValue, privacy: .public)")
-    }
-
-    var placeholderStyle: SinkFeeder.PlaceholderStyle { feeder.placeholderStyle }
     #endif
 
     func copyDiagnostics() {

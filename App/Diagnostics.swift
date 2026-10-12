@@ -33,7 +33,7 @@ enum Diagnostics {
         lines.append("Snapshot listener callbacks: \(link.listenerCallbacks); device binds: \(link.rebinds)")
         lines.append("Capture device: \(captureDevice ?? "not configured"); native format \(nativeFormat?.description ?? "unknown"); OffSight Camera format wanted \(nativeFormat.map { OffSightConstants.effectsFreeFormat(for: $0).description } ?? "unknown")")
         lines.append("Feeder: live sent \(feeder.framesSent), dropped \(feeder.framesDropped); placeholder sent \(feeder.placeholderFramesSent)")
-        lines.append("Placeholder: \(feeder.placeholderDescription); style \(feeder.placeholderStyle.rawValue)")
+        lines.append("Placeholder: \(feeder.placeholderDescription)")
         lines.append("Placeholder choice: \(PlaceholderImageStore.isCustom ? "custom image" : "OffSight default") (revision \(PlaceholderImageStore.revision))")
         lines.append("")
         if let snapshot {
@@ -69,6 +69,8 @@ enum Diagnostics {
         for session in engine.activeSessions {
             lines.append("  - \(session.app.id): \(session.phase.rawValue)")
         }
+        let policy = engine.settings
+        lines.append("Settings: prompt expiry \(Int(policy.promptExpiry)) s, grace \(Int(policy.gracePeriod)) s; live camera \(AppDefaults.liveCameraID ?? "automatic"); launch at login \(LaunchAtLogin.isEnabled); notifications \(AppDefaults.notificationsEnabled); close-all \(AppDefaults.shortcut(forKey: AppDefaults.panicShortcutKey)?.displayString ?? "none"), go-live \(AppDefaults.shortcut(forKey: AppDefaults.goLiveShortcutKey)?.displayString ?? "none")")
         lines.append("Bypass: \(bypass.camerasInUse.isEmpty ? "none" : bypass.camerasInUse.joined(separator: ", "))")
         for signal in bypass.lastSignals {
             lines.append("  - \(signal.name): avInUse=\(signal.avInUseByAnotherApp) cmioRunning=\(signal.cmioRunningSomewhere.map { String($0) } ?? "?") counted=\(signal.counted)")

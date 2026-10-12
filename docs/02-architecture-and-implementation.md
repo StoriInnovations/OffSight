@@ -124,7 +124,7 @@ The extension stores **nothing on disk** and has **no network access**.
 | **BrowserContext** | Best-effort tab or site name (§9). | UR-34a |
 | **Hotkeys** | Panic (close all shutters) and go live (current prompt); both can be reassigned. | UR-17, UR-18 |
 | **Onboarding** | First-run flow (§10). | UR-36, UR-37 |
-| **Settings** | Placeholder, camera source, shortcuts, notifications, prompt expiry (5–120 s, default 30), grace period (5–300 s, default 15), launch at login (default on). Stored in `UserDefaults`. There is **no** exemption or "always allow" setting. | UR-39, UR-40 |
+| **Settings** | Five tabs, stored in `UserDefaults`. **General:** launch at login (`SMAppService`, on by default on first run), notifications when an app goes live or its session ends (default on), coloured status icon. **Camera:** live camera (automatic = built-in first, or a chosen camera), placeholder image, video effects for live video. **Approvals:** prompt expiry (5–120 s, default 30), grace period (5–300 s, default 15). **Shortcuts:** close all shutters (default ⌃⌥⌘O), go live for the app asking now (unset by default; acts only when exactly one app is asking). Global shortcuts use Carbon `RegisterEventHotKey`, which works in the sandbox without Accessibility permission. **Advanced:** install, approve or remove the camera extension; camera privacy settings; copy diagnostics. There is **no** exemption or "always allow" setting. | UR-17, UR-18, UR-23, UR-31, UR-38, UR-39, UR-40 |
 | **History** (Could) | Local JSON-lines log in the app container: app, time, decision. No frames. The user can clear it. | UR-24 |
 | **Lifecycle** | Handles sleep/wake, camera hot-plug, extension restart, the pause timer, and crash recovery. | UR-41, NFR-11, NFR-12 |
 

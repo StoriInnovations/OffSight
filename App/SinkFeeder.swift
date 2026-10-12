@@ -14,17 +14,6 @@ import VideoToolbox
 ///   (UR-26) or the built-in artwork. Photo Booth
 ///   and Teams display frames arriving this way, but not frames the extension generates itself.
 final class SinkFeeder {
-    /// Debug test patterns for diagnosing apps that do not display the placeholder.
-    enum PlaceholderStyle: String, CaseIterable {
-        case brand = "Placeholder (as chosen in Settings)"
-        case brandWithMovingBar = "Placeholder + moving bar"
-        case brightGrey = "Bright grey (static)"
-        /// The artwork with faint film grain: still dark, no longer flat.
-        case fineGrain = "Placeholder + fine grain (dark, textured)"
-        /// The artwork with its levels lifted: bright, still flat.
-        case brightened = "Placeholder, brightened (light, flat)"
-    }
-
     struct Config: Equatable {
         var sendLive: Bool
         var sendPlaceholder: Bool
@@ -40,7 +29,7 @@ final class SinkFeeder {
     private var transferSession: VTPixelTransferSession?
     private var livePool: PoolCache
     private var placeholderPool: PoolCache
-    private var placeholderMasters: [String: CVPixelBuffer] = [:]
+    private var placeholderMasters: [Dimensions: CVPixelBuffer] = [:]
     private var placeholderRevision = -1
     /// What the last rendered placeholder contains (diagnostics).
     private(set) var placeholderDescription = "not rendered yet"
@@ -48,12 +37,6 @@ final class SinkFeeder {
     /// Used only on the placeholder queue (transfer sessions are not shared across queues).
     private var placeholderTransfer: VTPixelTransferSession?
     private var placeholderFrameCounter: UInt64 = 0
-    private var style: PlaceholderStyle = .brand
-
-    var placeholderStyle: PlaceholderStyle {
-        get { lock.lock(); defer { lock.unlock() }; return style }
-        set { lock.lock(); style = newValue; lock.unlock() }
-    }
     private let placeholderQueue = DispatchQueue(label: "com.storiinnovations.offsight.placeholder", qos: .userInteractive)
     private(set) var framesSent: UInt64 = 0
     private(set) var framesDropped: UInt64 = 0
@@ -117,15 +100,15 @@ final class SinkFeeder {
     /// Placeholder queue, 30 fps while needed. Never touches camera frames.
     ///
     /// Produced exactly like a live frame (hardware transfer into a fresh pool buffer, attachments
-    /// removed), and each frame differs from the last by one invisible pixel: Photo Booth and Teams
-    /// show nothing for a stream of byte-identical frames, as if the camera had stalled.
+    /// removed), and each frame differs from the last by one invisible pixel, so no consumer can
+    /// mistake the stream for a stalled camera. (Photo Booth and Teams once showed grey here; the
+    /// cause was macOS video effects, avoided by OffSight Camera's size, see `effectsFreeFormat`.)
     private func sendPlaceholderFrame() {
         lock.lock()
         let current = config
         lock.unlock()
-        let style = placeholderStyle
         guard let current, current.sendPlaceholder, !current.sendLive else { return }
-        guard let master = placeholderMaster(for: current.format, style: style),
+        guard let master = placeholderMaster(for: current.format),
               let output = placeholderPool.buffer(for: current.format) else { return }
         if let placeholderTransfer,
            VTPixelTransferSessionTransferImage(placeholderTransfer, from: master, to: output) == noErr {
@@ -136,9 +119,6 @@ final class SinkFeeder {
         CVBufferRemoveAllAttachments(output)
         placeholderFrameCounter &+= 1
         Self.nudgeCornerPixel(output, frame: placeholderFrameCounter)
-        if style == .brandWithMovingBar {
-            Self.drawMovingBar(output, frame: placeholderFrameCounter)
-        }
         send(output, tag: FrameTag(kind: .placeholder, epoch: current.epoch, generation: current.generation)) { sent in
             if sent { self.placeholderFramesSent += 1 }
         }
@@ -156,45 +136,18 @@ final class SinkFeeder {
         pixel.pointee = (pixel.pointee & 0xFE) | UInt8(frame & 1)
     }
 
-    /// A bright vertical bar sweeping across the frame (debug test pattern).
-    private static func drawMovingBar(_ buffer: CVPixelBuffer, frame: UInt64) {
-        CVPixelBufferLockBaseAddress(buffer, [])
-        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
-        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return }
-        let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
-        let barWidth = max(8, width / 40)
-        let x0 = Int((frame * 12) % UInt64(max(1, width - barWidth)))
-        let pixels = base.assumingMemoryBound(to: UInt8.self)
-        for y in 0..<height {
-            memset(pixels + y * bytesPerRow + x0 * 4, 0xFF, barWidth * 4)
-        }
-    }
-
-    /// Placeholder queue only. Rendered once per format, test pattern and placeholder choice.
-    private func placeholderMaster(for format: Dimensions, style: PlaceholderStyle) -> CVPixelBuffer? {
+    /// Placeholder queue only. Rendered once per format and placeholder choice.
+    private func placeholderMaster(for format: Dimensions) -> CVPixelBuffer? {
         let revision = PlaceholderImageStore.revision
         if revision != placeholderRevision {
             // The user picked another image: drop renderings of the old one.
             placeholderMasters.removeAll()
             placeholderRevision = revision
         }
-        let variant: String
-        switch style {
-        case .brightGrey: variant = "grey"
-        case .fineGrain: variant = "grain"
-        case .brightened: variant = "bright"
-        case .brand, .brandWithMovingBar: variant = "image"
-        }
-        let key = "\(format.description)|\(variant)"
-        if let cached = placeholderMasters[key] { return cached }
+        if let cached = placeholderMasters[format] { return cached }
         let image: CGImage?
         let source: String
-        if style == .brightGrey {
-            image = Self.solidImage(grey: 0.5)
-            source = "solid grey"
-        } else if style != .fineGrain, style != .brightened, let custom = PlaceholderImageStore.loadImage() {
-            // (The grain and brightened test patterns always start from the built-in artwork.)
+        if let custom = PlaceholderImageStore.loadImage() {
             image = custom
             source = "custom image \(custom.width)x\(custom.height)"
         } else {
@@ -203,46 +156,11 @@ final class SinkFeeder {
             source = image == nil ? "MISSING \(artwork.assetName)" : artwork.assetName
         }
         guard let master = PlaceholderRendering.render(image, dimensions: format) else { return nil }
-        switch style {
-        case .fineGrain: Self.adjustPixels(master) { value, noise in value + Int(noise % 13) - 6 }
-        case .brightened: Self.adjustPixels(master) { value, _ in 128 + value / 2 }
-        default: break
-        }
-        placeholderMasters[key] = master
+        placeholderMasters[format] = master
         let bright = PlaceholderRendering.brightSamples(master)
-        placeholderDescription = "\(format.description) from \(source) (\(variant)), \(bright) of 4096 samples bright"
+        placeholderDescription = "\(format.description) from \(source), \(bright) of 4096 samples bright"
         log.notice("Placeholder \(self.placeholderDescription, privacy: .public)")
         return master
-    }
-
-    /// Applies `transform(value, noise)` to the colour channels of every pixel (debug test patterns).
-    private static func adjustPixels(_ buffer: CVPixelBuffer, _ transform: (Int, UInt32) -> Int) {
-        CVPixelBufferLockBaseAddress(buffer, [])
-        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
-        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return }
-        let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
-        let pixels = base.assumingMemoryBound(to: UInt8.self)
-        var seed: UInt32 = 0x9E37_79B9
-        for y in 0..<height {
-            let row = pixels + y * bytesPerRow
-            for x in 0..<width {
-                seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5 // xorshift
-                for channel in 0..<3 { // BGRA: leave alpha alone
-                    let value = transform(Int(row[x * 4 + channel]), seed >> (channel * 8))
-                    row[x * 4 + channel] = UInt8(clamping: value)
-                }
-            }
-        }
-    }
-
-    private static func solidImage(grey: CGFloat) -> CGImage? {
-        guard let context = CGContext(data: nil, width: 16, height: 9, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpaceCreateDeviceRGB(),
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        context.setFillColor(CGColor(red: grey, green: grey, blue: grey, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: 16, height: 9))
-        return context.makeImage()
     }
 
     /// The full-resolution bitmap of an imageset in the app's asset catalog.
