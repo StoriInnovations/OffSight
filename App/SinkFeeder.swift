@@ -19,6 +19,10 @@ final class SinkFeeder {
         case brand = "Placeholder (as chosen in Settings)"
         case brandWithMovingBar = "Placeholder + moving bar"
         case brightGrey = "Bright grey (static)"
+        /// The artwork with faint film grain: still dark, no longer flat.
+        case fineGrain = "Placeholder + fine grain (dark, textured)"
+        /// The artwork with its levels lifted: bright, still flat.
+        case brightened = "Placeholder, brightened (light, flat)"
     }
 
     struct Config: Equatable {
@@ -175,14 +179,22 @@ final class SinkFeeder {
             placeholderMasters.removeAll()
             placeholderRevision = revision
         }
-        let key = "\(format.description)|\(style == .brightGrey ? "grey" : "image")"
+        let variant: String
+        switch style {
+        case .brightGrey: variant = "grey"
+        case .fineGrain: variant = "grain"
+        case .brightened: variant = "bright"
+        case .brand, .brandWithMovingBar: variant = "image"
+        }
+        let key = "\(format.description)|\(variant)"
         if let cached = placeholderMasters[key] { return cached }
-        var image: CGImage?
+        let image: CGImage?
         let source: String
         if style == .brightGrey {
             image = Self.solidImage(grey: 0.5)
             source = "solid grey"
-        } else if let custom = PlaceholderImageStore.loadImage() {
+        } else if style != .fineGrain, style != .brightened, let custom = PlaceholderImageStore.loadImage() {
+            // (The grain and brightened test patterns always start from the built-in artwork.)
             image = custom
             source = "custom image \(custom.width)x\(custom.height)"
         } else {
@@ -191,11 +203,37 @@ final class SinkFeeder {
             source = image == nil ? "MISSING \(artwork.assetName)" : artwork.assetName
         }
         guard let master = PlaceholderRendering.render(image, dimensions: format) else { return nil }
+        switch style {
+        case .fineGrain: Self.adjustPixels(master) { value, noise in value + Int(noise % 13) - 6 }
+        case .brightened: Self.adjustPixels(master) { value, _ in 128 + value / 2 }
+        default: break
+        }
         placeholderMasters[key] = master
         let bright = PlaceholderRendering.brightSamples(master)
-        placeholderDescription = "\(format.description) from \(source), \(bright) of 4096 samples bright"
+        placeholderDescription = "\(format.description) from \(source) (\(variant)), \(bright) of 4096 samples bright"
         log.notice("Placeholder \(self.placeholderDescription, privacy: .public)")
         return master
+    }
+
+    /// Applies `transform(value, noise)` to the colour channels of every pixel (debug test patterns).
+    private static func adjustPixels(_ buffer: CVPixelBuffer, _ transform: (Int, UInt32) -> Int) {
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return }
+        let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+        let pixels = base.assumingMemoryBound(to: UInt8.self)
+        var seed: UInt32 = 0x9E37_79B9
+        for y in 0..<height {
+            let row = pixels + y * bytesPerRow
+            for x in 0..<width {
+                seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5 // xorshift
+                for channel in 0..<3 { // BGRA: leave alpha alone
+                    let value = transform(Int(row[x * 4 + channel]), seed >> (channel * 8))
+                    row[x * 4 + channel] = UInt8(clamping: value)
+                }
+            }
+        }
     }
 
     private static func solidImage(grey: CGFloat) -> CGImage? {
