@@ -19,9 +19,9 @@ final class VideoEffectsWindowController: NSObject, NSWindowDelegate {
     private let model: VideoEffectsModel
     private let session: AVCaptureSession
 
-    init(session: AVCaptureSession, device: @escaping () -> AVCaptureDevice?) {
-        self.session = session
-        model = VideoEffectsModel(device: device)
+    init(capture: CameraCapture) {
+        session = capture.session
+        model = VideoEffectsModel(capture: capture)
         super.init()
     }
 
@@ -57,12 +57,14 @@ final class VideoEffectsModel: ObservableObject {
     @Published private(set) var effects: [Effect] = []
     @Published private(set) var cameraName: String?
     @Published private(set) var cameraAuthorised = true
+    /// The active camera mode and the effects it supports.
+    @Published private(set) var modeDescription: String?
 
-    private let device: () -> AVCaptureDevice?
+    private weak var capture: CameraCapture?
     private var timer: Timer?
 
-    init(device: @escaping () -> AVCaptureDevice?) {
-        self.device = device
+    init(capture: CameraCapture) {
+        self.capture = capture
     }
 
     func start() {
@@ -83,12 +85,14 @@ final class VideoEffectsModel: ObservableObject {
 
     private func refresh() {
         cameraAuthorised = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
-        guard let device = device() else {
+        guard let device = capture?.device else {
             cameraName = nil
             effects = []
+            modeDescription = nil
             return
         }
         cameraName = device.localizedName
+        modeDescription = capture?.activeModeDescription
         var list: [Effect] = [
             Effect(id: "Portrait", active: device.isPortraitEffectActive),
             Effect(id: "Studio Light", active: device.isStudioLightActive),
@@ -133,6 +137,11 @@ private struct VideoEffectsView: View {
                     ForEach(model.effects) { effect in
                         Label(effect.id, systemImage: effect.active ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(effect.active ? Color.accentColor : Color.secondary)
+                    }
+                    if let mode = model.modeDescription {
+                        Text("Camera mode \(mode)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer()

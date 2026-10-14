@@ -6,7 +6,7 @@ import OffSightCore
 enum Diagnostics {
     static func report(snapshot: ClientSnapshot?, link: ExtensionLink, installer: ExtensionInstaller,
                        resolved: [ResolvedApp], engine: PolicyEngine, captureDevice: String?,
-                       nativeFormat: Dimensions?, feeder: SinkFeeder, bypass: BypassMonitor) -> String {
+                       nativeFormat: Dimensions?, captureMode: String?, feeder: SinkFeeder, bypass: BypassMonitor) -> String {
         var lines: [String] = []
         let info = Bundle.main.infoDictionary ?? [:]
         lines.append("OffSight diagnostics — \(ISO8601DateFormatter().string(from: Date()))")
@@ -32,6 +32,7 @@ enum Diagnostics {
         lines.append("Sink start status: \(link.sinkStartStatus.map { String($0) } ?? "not attempted") after \(link.sinkStartAttempts) attempt(s)")
         lines.append("Snapshot listener callbacks: \(link.listenerCallbacks); device binds: \(link.rebinds)")
         lines.append("Capture device: \(captureDevice ?? "not configured"); native format \(nativeFormat?.description ?? "unknown"); OffSight Camera format wanted \(nativeFormat.map { OffSightConstants.effectsFreeFormat(for: $0).description } ?? "unknown")")
+        lines.append("Capture mode: \(captureMode ?? "not configured")")
         lines.append("Feeder: live sent \(feeder.framesSent), dropped \(feeder.framesDropped); placeholder sent \(feeder.placeholderFramesSent)")
         lines.append("Placeholder: \(feeder.placeholderDescription)")
         lines.append("Placeholder choice: \(PlaceholderImageStore.isCustom ? "custom image" : "OffSight default") (revision \(PlaceholderImageStore.revision))")

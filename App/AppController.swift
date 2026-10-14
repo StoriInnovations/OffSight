@@ -25,7 +25,7 @@ final class AppController: StatusMenuActions {
     /// and apply effects for OffSight. Live frames still go out only when the policy says so.
     private var effectsWindowOpen = false
     private lazy var effectsWindow: VideoEffectsWindowController = {
-        let controller = VideoEffectsWindowController(session: capture.session) { [weak self] in self?.capture.device }
+        let controller = VideoEffectsWindowController(capture: capture)
         controller.onVisibilityChange = { [weak self] open in
             self?.effectsWindowOpen = open
             self?.apply()
@@ -310,6 +310,7 @@ final class AppController: StatusMenuActions {
             engine: engine,
             captureDevice: capture.deviceName,
             nativeFormat: capture.nativeFormat,
+            captureMode: capture.activeModeDescription,
             feeder: feeder,
             bypass: bypass)
         NSPasteboard.general.clearContents()

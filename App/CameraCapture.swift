@@ -72,9 +72,38 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             }
             return best
         }
-        return largest(candidates, aspect: 16.0 / 9.0)
-            ?? largest(candidates, aspect: 4.0 / 3.0)
-            ?? largest(candidates)
+        // macOS video effects (Background, Portrait, Studio Light) run only on camera modes that
+        // support them, so prefer those: they reach the live video via OffSight's capture.
+        let withEffects = candidates.filter { Self.supportsEffects($0.format) }
+        for pool in [withEffects, candidates] {
+            if let mode = largest(pool, aspect: 16.0 / 9.0) ?? largest(pool, aspect: 4.0 / 3.0) ?? largest(pool) {
+                return mode
+            }
+        }
+        return nil
+    }
+
+    /// True when the mode supports the main system video effects: Background replacement where the
+    /// system has it (macOS 15+), otherwise Portrait.
+    private static func supportsEffects(_ format: AVCaptureDevice.Format) -> Bool {
+        if #available(macOS 15.0, *) {
+            return format.isBackgroundReplacementSupported
+        }
+        return format.isPortraitEffectSupported
+    }
+
+    /// Which effects the active camera mode supports, for the Video Effects window and diagnostics.
+    var activeModeDescription: String? {
+        guard let device else { return nil }
+        let format = device.activeFormat
+        let size = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+        var supported: [String] = []
+        if format.isPortraitEffectSupported { supported.append("Portrait") }
+        if format.isStudioLightSupported { supported.append("Studio Light") }
+        if format.isCenterStageSupported { supported.append("Center Stage") }
+        if #available(macOS 15.0, *), format.isBackgroundReplacementSupported { supported.append("Background") }
+        let effects = supported.isEmpty ? "no video effects" : supported.joined(separator: ", ")
+        return "\(size.width)x\(size.height): \(effects)"
     }
 
     /// Physical cameras the user can choose as the live source (UR-31).
