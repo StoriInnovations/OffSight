@@ -1,0 +1,108 @@
+# Release: tag vX.Y.Z (or run manually) → Homebrew build (Developer ID, notarized) published as a
+# GitHub Release with the cask, and the Mac App Store build uploaded to App Store Connect.
+# Signing material comes only from the `release` environment's secrets (docs/06-releasing.md);
+# the environment should require your approval before these jobs run.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.0.0 (manual runs build and upload but do not create a tag)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ github.event.inputs.version || github.ref_name }}
+
+jobs:
+  homebrew:
+    name: Homebrew build (Developer ID)
+    runs-on: macos-15
+    environment: release
+    env:
+      # Optional: a token that can push to astatine-/homebrew-offsight.
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        run: echo "VERSION=${VERSION#v}" >> "$GITHUB_ENV"
+      - name: Tools
+        run: brew install xcodegen
+      - name: Import signing material
+        env:
+          CERT_1_P12_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          CERT_1_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_P12_PASSWORD }}
+          PROFILE_1_BASE64: ${{ secrets.PROFILE_DEVID_APP_BASE64 }}
+          PROFILE_2_BASE64: ${{ secrets.PROFILE_DEVID_EXT_BASE64 }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+        run: scripts/ci/import-signing.sh
+      - name: Build, notarize and package
+        env:
+          OFFSIGHT_APP_PROFILE: OffSight DevID App
+          OFFSIGHT_EXT_PROFILE: OffSight DevID Extension
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: scripts/release-homebrew.sh
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" --title "OffSight $VERSION" --generate-notes \
+            "build/release/OffSight-$VERSION.zip" "build/release/OffSight-$VERSION.dmg" \
+            build/release/SHA256SUMS build/release/offsight.rb
+      - name: Update the Homebrew tap
+        if: startsWith(github.ref, 'refs/tags/v') && env.TAP_TOKEN != ''
+        run: |
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/astatine-/homebrew-offsight.git" tap
+          mkdir -p tap/Casks
+          cp build/release/offsight.rb tap/Casks/offsight.rb
+          cd tap
+          git config user.name "OffSight release"
+          git config user.email "release@users.noreply.github.com"
+          git add Casks/offsight.rb
+          git commit -m "offsight $VERSION"
+          git push
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: homebrew-release
+          path: build/release
+          if-no-files-found: ignore
+
+  appstore:
+    name: Mac App Store upload
+    runs-on: macos-15
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        run: echo "VERSION=${VERSION#v}" >> "$GITHUB_ENV"
+      - name: Tools
+        run: brew install xcodegen
+      - name: Import signing material
+        env:
+          CERT_1_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERT_P12_BASE64 }}
+          CERT_1_P12_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERT_P12_PASSWORD }}
+          CERT_2_P12_BASE64: ${{ secrets.MAC_INSTALLER_CERT_P12_BASE64 }}
+          CERT_2_P12_PASSWORD: ${{ secrets.MAC_INSTALLER_CERT_P12_PASSWORD }}
+          PROFILE_1_BASE64: ${{ secrets.PROFILE_MAS_APP_BASE64 }}
+          PROFILE_2_BASE64: ${{ secrets.PROFILE_MAS_EXT_BASE64 }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+        run: scripts/ci/import-signing.sh
+      - name: Archive and upload to App Store Connect
+        env:
+          OFFSIGHT_APP_PROFILE: OffSight MAS App
+          OFFSIGHT_EXT_PROFILE: OffSight MAS Extension
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: scripts/appstore-upload.sh
