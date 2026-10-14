@@ -57,6 +57,11 @@ jobs:
           APP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app"
           ls -R "$APP/Contents/Library/SystemExtensions" | head -20
           test -d "$APP/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension"
+      - name: Privacy manifests are bundled
+        run: |
+          APP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app"
+          plutil -lint "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
+          plutil -lint "$APP/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension/Contents/Resources/PrivacyInfo.xcprivacy"
       - name: Launch agent is bundled
         run: |
           AGENT="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app/Contents/Library/LaunchAgents/com.storiinnovations.offsight.agent.plist"
