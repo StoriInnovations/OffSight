@@ -108,13 +108,49 @@ final class PolicyEngineTests: XCTestCase {
         XCTAssertEqual(engine.session(for: zoom)?.phase, .pending)
     }
 
-    func testPendingPromptDisappearsWhenAppStopsAndReturnsAsPlaceholder() {
+    func testPendingPromptDisappearsWhenAppStopsAndPromptsAgainOnRestart() {
+        // B1: Photo Booth starts, stops and restarts the camera within a second as its window opens.
         var engine = PolicyEngine()
         engine.clientsChanged([client(zoom)], now: t0)
+        engine.clientsChanged([], now: t0 + 0.5)
+        XCTAssertTrue(engine.pendingPrompts.isEmpty, "no prompt while the app is not using the camera")
+        XCTAssertFalse(engine.outputLive)
+        engine.clientsChanged([client(zoom)], now: t0 + 1)
+        XCTAssertEqual(engine.session(for: zoom)?.phase, .pending)
+        XCTAssertEqual(engine.pendingPrompts.map(\.app), [zoom], "an undecided session asks again")
+        XCTAssertEqual(engine.session(for: zoom)?.promptExpiresAt, t0 + 1 + PolicySettings.defaultPromptExpiry,
+                       "with a fresh expiry")
+        XCTAssertFalse(engine.outputLive)
+    }
+
+    func testDeclinedSessionRestartWithinGraceKeepsPlaceholderWithoutPrompt() {
+        var engine = PolicyEngine()
+        engine.clientsChanged([client(zoom)], now: t0)
+        engine.keepPlaceholder(zoom)
         engine.clientsChanged([], now: t0 + 2)
-        XCTAssertTrue(engine.pendingPrompts.isEmpty)
         engine.clientsChanged([client(zoom)], now: t0 + 5)
         XCTAssertEqual(engine.session(for: zoom)?.phase, .placeholder)
+        XCTAssertTrue(engine.pendingPrompts.isEmpty)
+    }
+
+    func testExpiredPromptRestartWithinGraceKeepsPlaceholder() {
+        var engine = PolicyEngine(settings: PolicySettings(promptExpiry: 5, gracePeriod: 15))
+        engine.clientsChanged([client(zoom)], now: t0)
+        engine.tick(now: t0 + 6)
+        XCTAssertEqual(engine.session(for: zoom)?.phase, .placeholder, "expired into the placeholder")
+        engine.clientsChanged([], now: t0 + 7)
+        engine.clientsChanged([client(zoom)], now: t0 + 8)
+        XCTAssertEqual(engine.session(for: zoom)?.phase, .placeholder)
+        XCTAssertTrue(engine.pendingPrompts.isEmpty)
+    }
+
+    func testUndecidedSessionCannotBeApprovedWhileStopped() {
+        var engine = PolicyEngine()
+        engine.clientsChanged([client(zoom)], now: t0)
+        engine.clientsChanged([], now: t0 + 1)
+        XCTAssertFalse(engine.approve(zoom, now: t0 + 2), "no approval for an app that is not using the camera")
+        engine.clientsChanged([client(zoom)], now: t0 + 3)
+        XCTAssertFalse(engine.outputLive)
     }
 
     func testRuleR4RestartWithoutVisibleStopAfterLongGapIsNewSession() {

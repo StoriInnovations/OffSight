@@ -200,14 +200,15 @@ stateDiagram-v2
     Placeholder --> Ending: all of this app's clients stop
     Pending --> Ending: all of this app's clients stop
     Ending --> Live: client restarts within grace, was Live
-    Ending --> Placeholder: client restarts within grace, was Placeholder or Pending
+    Ending --> Placeholder: client restarts within grace, was Placeholder
+    Ending --> Pending: client restarts within grace, was Pending (asks again)
     Ending --> Idle: grace period (5–300 s) passes, approval discarded
 ```
 
 **Rules:**
 
 - **R1 (UR-11).** Approval is held only in the `Live` state of a session. Entering `Idle` discards it. Nothing about an approval is ever saved.
-- **R2 (UR-12).** The grace period applies only while the state is `Ending`. A restart within grace returns to the earlier state; after grace, the next start is a new session that prompts again.
+- **R2 (UR-12).** The grace period applies only while the state is `Ending`. A restart within grace returns to the earlier decision: live stays live, placeholder stays placeholder. A session that ended before the user decided (still `Pending`) has no decision to keep, so it prompts again with a fresh expiry. Photo Booth, for example, starts, stops and restarts the camera within a second as its window opens. After grace, the next start is a new session that prompts again.
 - **R3 (UR-09/09a).** Dismissing or ignoring the prompt (expiry) always leads to `Placeholder` and never to `Live`.
 - **R4: when a client's stop is unclear.** The extension may not report each client stopping while other clients are still streaming (spike S2). If a new start arrives for an app OffSight still thinks is active, **and** that app's last start/stop event is older than the grace period, OffSight treats it as a **new session** and prompts. It may occasionally prompt when not strictly needed, but never fails to prompt.
 - **R5: sleep.** On system sleep, every session moves to `Idle`. On wake, any app still using the camera starts a new session and gets a prompt.

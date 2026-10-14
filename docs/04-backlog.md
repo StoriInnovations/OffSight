@@ -5,6 +5,7 @@ What is still to do after the M0 working slice, checked against the requirements
 ## Bugs
 
 ### B1. No prompt when Photo Booth opens with OffSight Camera already selected
+**Status:** fixed (rule R2 changed, see `docs/02`); confirm on device.
 **Seen:** Photo Booth set to OffSight Camera, then launched: no approval prompt. Switching Photo Booth to another camera and back to OffSight Camera brings the prompt.
 
 **Likely causes (to confirm):**

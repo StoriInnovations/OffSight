@@ -240,8 +240,12 @@ public struct PolicyEngine: Sendable {
     private mutating func startOrResumeSession(_ app: AppKey, now: Date) {
         if var session = sessions[app], let endedAt = session.endedAt,
            now.timeIntervalSince(endedAt) <= settings.gracePeriod {
-            // UR-12: restart within the grace period keeps the earlier decision.
+            // UR-12: restart within the grace period keeps the earlier decision. A session that
+            // ended before the user decided has no decision to keep, so it asks again (rule R2).
             session.endedAt = nil
+            if session.phase == .pending {
+                session.promptExpiresAt = isPaused ? nil : now.addingTimeInterval(settings.promptExpiry)
+            }
             sessions[app] = session
         } else {
             startNewSession(app, now: now)
@@ -250,10 +254,9 @@ public struct PolicyEngine: Sendable {
 
     private mutating func endSession(_ app: AppKey, now: Date) {
         guard var session = sessions[app] else { return }
-        if session.phase == .pending {
-            session.phase = .placeholder
-            session.promptExpiresAt = nil
-        }
+        // An unanswered session stays undecided (pending) but its prompt goes away while the app
+        // is not using the camera; it prompts again if the app restarts within the grace period.
+        session.promptExpiresAt = nil
         session.endedAt = now
         sessions[app] = session
     }
