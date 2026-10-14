@@ -21,6 +21,14 @@ final class AppController: StatusMenuActions {
     private var resolvedApps: [AppKey: ResolvedApp] = [:]
     private var nextFormatRequest = Date.distantPast
     private let shortcuts = GlobalShortcuts()
+    /// Recent client and policy changes, for diagnostics (no images, app names only).
+    private var timeline: [String] = []
+    private var lastPolicySummary = ""
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss.SSS"
+        return formatter
+    }()
     /// True while the Video Effects window is open: OffSight's capture runs so the system can show
     /// and apply effects for OffSight. Live frames still go out only when the policy says so.
     private var effectsWindowOpen = false
@@ -154,6 +162,11 @@ final class AppController: StatusMenuActions {
         }
     }
 
+    private func note(_ text: String) {
+        timeline.append("\(Self.timeFormatter.string(from: Date())) \(text)")
+        if timeline.count > 40 { timeline.removeFirst(timeline.count - 40) }
+    }
+
     // MARK: Snapshot → policy
 
     private func handle(_ snapshot: ClientSnapshot) {
@@ -165,6 +178,11 @@ final class AppController: StatusMenuActions {
             clients.append(StreamingClient(clientID: record.clientID, app: resolved.key,
                                            startSequence: record.startSequence, restartGap: record.restartGap))
         }
+        let records = snapshot.clients.map { record -> String in
+            let gap = record.restartGap.map { String(format: " gap %.1fs", $0) } ?? ""
+            return "pid \(record.pid) seq \(record.startSequence) \(record.streaming ? "streaming" : "stopped")\(gap)"
+        }
+        note("snapshot gen \(snapshot.generation): \(records.isEmpty ? "no clients" : records.joined(separator: "; "))")
         engine.clientsChanged(clients, now: Date())
         log.info("Snapshot gen \(snapshot.generation): \(clients.count) streaming client(s), live=\(self.engine.outputLive)")
         apply()
@@ -188,6 +206,13 @@ final class AppController: StatusMenuActions {
             requestCameraFormatIfNeeded()
         } else {
             feeder.update(nil)
+        }
+
+        let policySummary = engine.activeSessions.map { "\(name(of: $0.app)) \($0.phase.rawValue)" }.joined(separator: ", ")
+            + " | prompts \(pending.count), live \(live)"
+        if policySummary != lastPolicySummary {
+            lastPolicySummary = policySummary
+            note("policy: \(policySummary)")
         }
 
         prompts.update(items: pending.map { session in
@@ -311,6 +336,7 @@ final class AppController: StatusMenuActions {
             captureDevice: capture.deviceName,
             nativeFormat: capture.nativeFormat,
             captureMode: capture.activeModeDescription,
+            timeline: timeline,
             feeder: feeder,
             bypass: bypass)
         NSPasteboard.general.clearContents()

@@ -6,7 +6,7 @@ import OffSightCore
 enum Diagnostics {
     static func report(snapshot: ClientSnapshot?, link: ExtensionLink, installer: ExtensionInstaller,
                        resolved: [ResolvedApp], engine: PolicyEngine, captureDevice: String?,
-                       nativeFormat: Dimensions?, captureMode: String?, feeder: SinkFeeder, bypass: BypassMonitor) -> String {
+                       nativeFormat: Dimensions?, captureMode: String?, timeline: [String], feeder: SinkFeeder, bypass: BypassMonitor) -> String {
         var lines: [String] = []
         let info = Bundle.main.infoDictionary ?? [:]
         lines.append("OffSight diagnostics — \(ISO8601DateFormatter().string(from: Date()))")
@@ -77,6 +77,9 @@ enum Diagnostics {
             lines.append("  - \(signal.name): avInUse=\(signal.avInUseByAnotherApp) cmioRunning=\(signal.cmioRunningSomewhere.map { String($0) } ?? "?") counted=\(signal.counted)")
         }
         lines.append("Physical cameras: \(BypassMonitor.physicalCameras().map(\.localizedName).joined(separator: ", "))")
+        lines.append("")
+        lines.append("Recent events (oldest first):")
+        lines.append(contentsOf: timeline.map { "  \($0)" })
         return lines.joined(separator: "\n")
     }
 }
