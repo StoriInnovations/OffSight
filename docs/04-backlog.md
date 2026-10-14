@@ -1,69 +1,58 @@
 # OffSight — Backlog
 
-What is still to do after the M0 working slice, checked against the requirements (`docs/01-user-requirements.md`) and the code. Order of work at the end.
+Status of the work after the M0 working slice, checked against `docs/01-user-requirements.md`.
+"Done" means implemented, built in CI and covered by tests where possible; items marked
+**verify on device** still need a run of `scripts/test-on-device.sh` (or a manual check) on a Mac.
 
 ## Bugs
 
-### B1. No prompt when Photo Booth opens with OffSight Camera already selected
-**Status:** fixed (rule R2 changed, see `docs/02`); confirm on device.
-**Seen:** Photo Booth set to OffSight Camera, then launched: no approval prompt. Switching Photo Booth to another camera and back to OffSight Camera brings the prompt.
-
-**Likely causes (to confirm):**
-1. **A quick stop and start at launch.** Photo Booth starts and stops the camera as its window appears, is covered or becomes visible. If it starts, stops and restarts within the grace period (15 s), the policy treats it as a restart of the same session. When the session ended while still *pending* (unanswered), rule R2 brings it back as *placeholder* (see the state machine in `docs/02`, “Ending → Placeholder: was Placeholder or Pending”; test `testPendingPromptDisappearsWhenAppStopsAndReturnsAsPlaceholder`). The prompt is gone and the app silently keeps the placeholder. Safe, but the user never gets asked.
-2. **The start isn't seen as a session at launch** (for example, the client never reported as streaming).
-3. **The prompt is shown but hidden** while Photo Booth is still activating.
-
-**To tell them apart:** when it happens, open the OffSight menu. *Photo Booth — Placeholder* points to cause 1; Photo Booth not listed points to cause 2; *Waiting for approval* points to cause 3. Copy Diagnostics at the same moment.
-
-**Proposed fix for cause 1:** a restart within the grace period of a session that ended *undecided* resumes as *pending* with a fresh prompt (still the placeholder until approved, so still fail-closed). Approved and declined sessions keep their decision as today (UR-12). Changes rule R2 and one unit test; needs your agreement because R2 is part of the approved architecture.
-
-### B2. Background effect not reaching meeting apps
-macOS applies the Background effect to OffSight's preview but not (so far) to the frames OffSight passes on. Latest attempt: capture in the camera's YUV format. **Waiting on test.** If it still fails: build OffSight's own background effect (Off / Blur / Image / Colour) with Vision person segmentation, applied to live frames only.
-
-## Must-haves for v1.0
-
-| Item | Requirement | Notes |
+| # | Bug | Status |
 |---|---|---|
-| First-run onboarding | UR-36, UR-37 | Explain, request permissions with reasons, guide choosing OffSight Camera in each installed meeting app, confirm protection is active. |
-| Launch at login with consent | UR-38; App Store guideline 2.4.5 | Today it is turned on silently on first run. Make it a pre-ticked option in onboarding. |
-| Relaunch after a crash | NFR-11 | Fails closed already (placeholder continues); does not relaunch itself. |
-| Camera unplugged mid-session | NFR-12 | Sleep ends sessions. Unplugging the live camera must fall back to the placeholder and reselect a camera. |
-| Smoother extension updates | — | Guide the user when an updated camera extension needs a restart, instead of leaving “Installed but not running”. |
-| Keyboard and VoiceOver pass | NFR-13 | Menu, prompt, Settings, Video Effects, Help. |
-| Measure the timing requirements | UR-19, NFR-07, NFR-09 | Shutter close ≤ 250 ms, ≤ 1 frame added latency, prompt ≤ 500 ms. |
-| Hide the Video Effects preview from screen sharing | NFR-05 | The prompt's preview already is; the new window's preview is not. |
+| B1 | No prompt when Photo Booth opens with OffSight Camera already selected | **Done**: rule R2 changed (an unanswered session that restarts within grace prompts again). Unit tests; device checks `restart-pending` and `photo-booth`. Verify on device. |
+| B2 | macOS Background effect reaches OffSight's preview but not meeting apps | **Waiting on test** of the YUV capture change. If it still fails: build OffSight's own background effect (Vision person segmentation), live video only. |
+
+## Must-haves
+
+| Item | Requirement | Status |
+|---|---|---|
+| First-run onboarding | UR-36, UR-37 | **Done**: six-step welcome guide; reopen from Settings › General. Verify on device. |
+| Launch at login with consent | UR-38; App Store 2.4.5 | **Done**: pre-ticked choice on the last onboarding step; launch agent. |
+| Relaunch after a crash | NFR-11 | **Done**: launch agent with KeepAlive (when launch at login is on); SIGTERM and Quit exit cleanly. Device check `fail-closed`. |
+| Camera unplugged mid-session | NFR-12 | **Done**: all shutters close, camera reselected, notification. Verify on device with a USB webcam. |
+| Extension updated but not running | — | **Done**: one-time "restart to finish" notification after 20 s. |
+| Keyboard and VoiceOver | NFR-13 | **Done** (pass 1): prompt announcements, labels, hints; approve via menu or shortcut with VoiceOver. Device check `ui-prompt`. A full VoiceOver walkthrough is still worth doing. |
+| Timing requirements | UR-19, NFR-07, NFR-09 | **Measured by** device checks `close-all`, `approve-live`, `prompt-latency`. |
+| Video Effects preview hidden from screen sharing | NFR-05 | **Done**. |
 
 ## Release and distribution
 
-| Item | Requirement | Notes |
-|---|---|---|
-| App Store preparation | NFR-17 | Privacy manifests (app and extension), `ITSAppUsesNonExemptEncryption`, an upload script (automatic signing), notes for App Review. |
-| TestFlight build through review | Spike S1 | Confirms App Review accepts the camera extension design. |
-| Release workflow + Homebrew cask | NFR-17 | `release.yml`: Developer ID signing, notarization, DMG/ZIP, cask PR; App Store upload. |
-| Project site live | — | Merge to `main`, enable GitHub Pages; check whether `astatine-.github.io` resolves (trailing hyphen) or use a custom domain. |
-| Account tasks (owner) | — | Agreements, EU trader status, copyright holder for the listing. |
+| Item | Status |
+|---|---|
+| App Store preparation | **Done**: privacy manifests, export flag, `scripts/appstore-upload.sh`, `docs/05-app-review-notes.md`. |
+| TestFlight build through review (spike S1) | **Owner**: run `scripts/appstore-upload.sh`, add the build to an external TestFlight group. |
+| Release workflow + Homebrew cask | **Done**: `.github/workflows/release.yml`, `docs/06-releasing.md`. **Owner**: secrets in the `release` environment, create `astatine-/homebrew-offsight`. |
+| Project site live | **Owner**: merge to `main`, enable GitHub Pages (Source: GitHub Actions); check `astatine-.github.io` resolves. |
+| Account tasks | **Owner**: agreements, EU trader status, copyright holder for the listing. |
 
 ## Should and could
 
 | Item | Requirement | Status |
 |---|---|---|
-| Tab or site name for browser meetings | UR-34a (S) | Not built; Homebrew build only (needs Apple Events). |
-| External webcams and Continuity Camera | UR-30 (S) | Camera choice exists; untested with either. |
-| Initials or name placeholder | UR-27 (C) | Not built. |
-| Local activity history | UR-24 (C) | Not built. |
+| Website for browser meetings | UR-34a (S) | **Done** (Homebrew and Debug builds; App Store shows the browser name). Verify on device. |
+| External webcams and Continuity Camera | UR-30 (S) | Camera choice exists; **verify on device**. |
+| Initials placeholder | UR-27 (C) | **Done**. |
+| Local activity history | UR-24 (C) | Not built (not selected for this round). |
 
-## Testing still to do
+## Testing
 
-- Webex, Slack huddles, FaceTime; Teams and Meet in Edge, Arc and Firefox (UR-33). Done: Zoom, Teams, Meet, Photo Booth, QuickTime.
-- Fail-closed: quit OffSight mid-call; the meeting app keeps the placeholder.
-- Clean-Mac install and uninstall (NFR-18).
-- On-device checks of: launch at login, notifications, shortcuts, prompt expiry and grace settings, camera choice, Help menu, Settings window.
+- **Unit tests** (CI, every push): policy engine and invariants, frame gate, client tracker and protocol, placeholder layout and rendering, effects-free format, initials renderer, browser site parsing, meeting-app guides, test-hook protocol.
+- **Build checks** (CI): Debug, Release and App Store builds; extension embedded and free of AppKit; brand assets; launch agent, privacy manifests and help page bundled; test tool builds.
+- **On-device** (`scripts/test-on-device.sh`, see `Tools/OffSightTest/README.md`): 17 automated checks including Photo Booth, QuickTime, UI through Accessibility and fail-closed; guided checks for Zoom, Teams, Meet in five browsers, Webex, Slack and FaceTime; Markdown report.
+- Still manual: clean-Mac install and uninstall (NFR-18); a full VoiceOver walkthrough.
 
-## Suggested order
+## Next
 
-1. B1 and B2.
-2. Onboarding, including launch-at-login consent.
-3. App Store preparation and a TestFlight build.
-4. Robustness: crash relaunch, camera unplug, extension updates, screen-sharing fix.
-5. Accessibility pass and timing measurements, then the remaining app tests.
-6. Release workflow and Homebrew; then the should and could items.
+1. On device: `scripts/test-on-device.sh all`, and the B2 background test.
+2. TestFlight build (S1).
+3. Release secrets, tap repository, site live.
+4. Activity history (UR-24) if wanted.

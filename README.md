@@ -4,7 +4,7 @@ Protect yourself from accidentally sharing your camera in virtual meetings on Zo
 
 ## Status
 
-Requirements, architecture and the Apple account setup are in [`docs/`](docs/). Milestone **M0** (project skeleton + first working slice with the built-in camera) is in progress. See the [M0 runbook](docs/spikes/M0-spike-runbook.md).
+Requirements, architecture, Apple account setup, the [backlog](docs/04-backlog.md), [App Store notes](docs/05-app-review-notes.md) and [releasing](docs/06-releasing.md) are in [`docs/`](docs/). The M0 working slice is done; the v1.0 must-haves are implemented and awaiting on-device verification.
 
 For people using OffSight: the [User Guide](App/Help/index.html) (a single HTML page, bundled in the app and opened from **OffSight Help** in the menu) covers setup, choosing OffSight Camera in each meeting app, everyday use, settings and troubleshooting.
 
@@ -16,7 +16,10 @@ Requires macOS 13+, Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeG
 xcodegen generate            # creates OffSight.xcodeproj from project.yml
 ./scripts/dev-install.sh     # dev-signed build, installed to /Applications and launched
 swift test --package-path Packages/OffSightCore   # core logic unit tests
+./scripts/test-on-device.sh  # on-device checks against the installed Debug build (Tools/OffSightTest)
 ```
+
+The on-device tool runs 17 automated checks (approval flow, timings, Photo Booth, QuickTime, UI, fail-closed) and guided checks for the main meeting apps, and writes a Markdown report; see [Tools/OffSightTest/README.md](Tools/OffSightTest/README.md).
 
 Signing identifiers live in `Config/Signing.xcconfig`. **Never** commit certificates, keys, profiles or passwords.
 
