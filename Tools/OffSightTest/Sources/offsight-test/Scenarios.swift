@@ -68,7 +68,7 @@ final class TestContext {
 
 enum Scenarios {
     static let all: [Scenario] = [
-        environment, placeholderByDefault, promptLatency, approveGoesLive, closeAllTiming, steadyFrames,
+        environment, placeholderByDefault, promptLatency, approveGoesLive, closeAllTiming, steadyFrames, promptUI,
         restartWhilePending, restartWithinGraceKeepsApproval, sessionEndAsksAgain, keepThenGoLive,
         promptExpiry, pause, bypassDetection, failClosed, photoBooth, quickTime,
     ]

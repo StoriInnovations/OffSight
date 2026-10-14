@@ -22,8 +22,9 @@ scripts/test-on-device.sh all           # automated, then guided
 scripts/test-on-device.sh list
 ```
 
-The first run asks for camera access for your terminal, and (for the QuickTime check) permission
-for the terminal to control QuickTime Player. The run temporarily sets the grace period to 5 s and
+The first run asks for camera access for your terminal, Accessibility access (for the UI check;
+System Settings › Privacy & Security › Accessibility) and permission for the terminal to control
+QuickTime Player. The run temporarily sets the grace period to 5 s and
 restores your settings at the end. Expect about 3 minutes for the automated checks.
 
 ## What it checks
@@ -36,6 +37,7 @@ restores your settings at the end. Expect about 3 minutes for the automated chec
 | approve-live | UR-07, UR-13 | Live frames after approval, no stall in the stream |
 | close-all | UR-16, UR-17, UR-19 | Live stops within 250 ms, stream keeps flowing |
 | steady-frames | UR-05, UR-28 | ≥25 fps and one frame size, placeholder and live |
+| ui-prompt | UR-06–08, UR-14, UR-20, NFR-04, NFR-13 | Through Accessibility: the prompt names the app, has both buttons and a labelled preview; the menu bar icon says protected; an automated press on Go live is ignored |
 | restart-pending | R2, bug B1 | An unanswered app that restarts is asked again |
 | grace-keeps-live | UR-12 | A quick restart keeps the approval |
 | session-end | UR-11, UR-40 | After the grace period the next session asks again |
