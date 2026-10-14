@@ -30,7 +30,7 @@ final class SinkFeeder {
     private var livePool: PoolCache
     private var placeholderPool: PoolCache
     private var placeholderMasters: [Dimensions: CVPixelBuffer] = [:]
-    private var placeholderRevision = -1
+    private var placeholderChoice = ""
     /// What the last rendered placeholder contains (diagnostics).
     private(set) var placeholderDescription = "not rendered yet"
     private var placeholderTimer: DispatchSourceTimer?
@@ -138,18 +138,18 @@ final class SinkFeeder {
 
     /// Placeholder queue only. Rendered once per format and placeholder choice.
     private func placeholderMaster(for format: Dimensions) -> CVPixelBuffer? {
-        let revision = PlaceholderImageStore.revision
-        if revision != placeholderRevision {
-            // The user picked another image: drop renderings of the old one.
+        let choice = PlaceholderImageStore.cacheKey
+        if choice != placeholderChoice {
+            // The user changed the placeholder: drop renderings of the old one.
             placeholderMasters.removeAll()
-            placeholderRevision = revision
+            placeholderChoice = choice
         }
         if let cached = placeholderMasters[format] { return cached }
         let image: CGImage?
         let source: String
-        if let custom = PlaceholderImageStore.loadImage() {
-            image = custom
-            source = "custom image \(custom.width)x\(custom.height)"
+        if let content = PlaceholderImageStore.content(for: format) {
+            image = content.image
+            source = content.source
         } else {
             let artwork = PlaceholderLayout.artwork(for: format)
             image = Self.cgImage(named: artwork.assetName)

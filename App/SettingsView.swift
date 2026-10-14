@@ -289,36 +289,74 @@ private struct AdvancedTab: View {
 
 // MARK: Placeholder
 
-/// Choose what meeting apps see until you go live: the built-in artwork or your own image.
+/// Choose what meeting apps see until you go live: the OffSight artwork, your own image, or
+/// your initials (UR-25, UR-26, UR-27).
 private struct PlaceholderSettings: View {
+    @State private var mode = PlaceholderImageStore.mode
     @State private var thumbnail: CGImage?
-    @State private var name: String?
+    @State private var imageName: String?
     @State private var errorMessage: String?
+    @AppStorage(PlaceholderImageStore.initialsNameKey) private var initialsName = ""
+    @AppStorage(PlaceholderImageStore.initialsColourKey) private var initialsColour = InitialsPlaceholder.colours[0].id
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Placeholder")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Placeholder", selection: $mode) {
+                ForEach(PlaceholderMode.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: mode) { newValue in
+                if newValue == .image, !PlaceholderImageStore.isCustom {
+                    chooseImage() // nothing to show yet: ask for one
+                } else {
+                    PlaceholderImageStore.mode = newValue
+                }
+            }
+
             HStack(alignment: .top, spacing: 12) {
                 preview
-                    .frame(width: 128, height: 72)
+                    .frame(width: 160, height: 90)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.4)))
+                    .accessibilityLabel("Placeholder preview")
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(name ?? "OffSight default")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    HStack {
-                        Button("Choose Image…", action: chooseImage)
-                        Button("Use Default", action: useDefault)
-                            .disabled(name == nil)
+                    switch mode {
+                    case .standard:
+                        Text("The OffSight “Camera off” picture.")
+                    case .image:
+                        Text(imageName ?? "No image chosen")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        HStack {
+                            Button("Choose Image…", action: chooseImage)
+                            Button("Remove", action: removeImage)
+                                .disabled(imageName == nil)
+                        }
+                    case .initials:
+                        TextField("Your name or initials", text: $initialsName)
+                            .textFieldStyle(.roundedBorder)
+                        HStack(spacing: 6) {
+                            ForEach(InitialsPlaceholder.colours) { colour in
+                                Button {
+                                    initialsColour = colour.id
+                                } label: {
+                                    Circle()
+                                        .fill(Color(cgColor: colour.cgColor))
+                                        .frame(width: 18, height: 18)
+                                        .overlay(Circle().stroke(Color.accentColor, lineWidth: initialsColour == colour.id ? 2 : 0)
+                                            .padding(-3))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(colour.name)
+                                .accessibilityAddTraits(initialsColour == colour.id ? .isSelected : [])
+                            }
+                        }
                     }
                 }
             }
-            Text("Shown to meeting apps until you go live. PNG, JPEG or HEIC; it fills the frame, so the edges of images with another shape are trimmed.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            Note(mode == .image
+                 ? "PNG, JPEG or HEIC. It fills the frame, so the edges of images with another shape are trimmed."
+                 : "Shown to meeting apps until you go live.")
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
@@ -331,19 +369,22 @@ private struct PlaceholderSettings: View {
 
     @ViewBuilder
     private var preview: some View {
-        if let thumbnail {
-            Image(decorative: thumbnail, scale: 1)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } else {
-            Image(PlaceholderLayout.Artwork.wide16x9.assetName)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+        switch mode {
+        case .image where thumbnail != nil:
+            Image(decorative: thumbnail!, scale: 1).resizable().aspectRatio(contentMode: .fill)
+        case .initials:
+            if let image = InitialsPlaceholder.render(name: initialsName, colour: InitialsPlaceholder.colour(id: initialsColour),
+                                                      dimensions: Dimensions(width: 320, height: 180)) {
+                Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fill)
+            }
+        default:
+            Image(PlaceholderLayout.Artwork.wide16x9.assetName).resizable().aspectRatio(contentMode: .fill)
         }
     }
 
     private func reload() {
-        name = PlaceholderImageStore.originalName
+        mode = PlaceholderImageStore.mode
+        imageName = PlaceholderImageStore.originalName
         thumbnail = PlaceholderImageStore.loadThumbnail()
     }
 
@@ -354,20 +395,20 @@ private struct PlaceholderSettings: View {
         panel.canChooseDirectories = false
         panel.message = "Choose the image meeting apps see until you go live."
         NSApp.activate(ignoringOtherApps: true)
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            try PlaceholderImageStore.importImage(from: url)
-            errorMessage = nil
-        } catch {
-            errorMessage = error.localizedDescription
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                try PlaceholderImageStore.importImage(from: url)
+                errorMessage = nil
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
         reload()
     }
 
-    private func useDefault() {
+    private func removeImage() {
         PlaceholderImageStore.useDefault()
         errorMessage = nil
         reload()
     }
 }
-

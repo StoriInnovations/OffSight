@@ -35,7 +35,7 @@ enum Diagnostics {
         lines.append("Capture mode: \(captureMode ?? "not configured")")
         lines.append("Feeder: live sent \(feeder.framesSent), dropped \(feeder.framesDropped); placeholder sent \(feeder.placeholderFramesSent)")
         lines.append("Placeholder: \(feeder.placeholderDescription)")
-        lines.append("Placeholder choice: \(PlaceholderImageStore.isCustom ? "custom image" : "OffSight default") (revision \(PlaceholderImageStore.revision))")
+        lines.append("Placeholder choice: \(PlaceholderImageStore.mode.title) (\(PlaceholderImageStore.cacheKey))")
         lines.append("")
         if let snapshot {
             lines.append("Extension epoch \(snapshot.epoch), generation \(snapshot.generation), camera format \(snapshot.activeFormat)\(snapshot.pendingFormat.map { " (switching to \($0) when idle)" } ?? "")")

@@ -5,6 +5,68 @@ import OffSightCore
 import os
 import UniformTypeIdentifiers
 
+/// What meeting apps see until the user goes live: the OffSight artwork (UR-25), the user's own
+/// image (UR-26) or generated initials (UR-27).
+enum PlaceholderMode: String, CaseIterable, Identifiable {
+    case standard = "default"
+    case image
+    case initials
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .standard: return "OffSight"
+        case .image: return "My Image"
+        case .initials: return "Initials"
+        }
+    }
+}
+
+extension PlaceholderImageStore {
+    static let modeKey = "placeholderMode"
+    static let initialsNameKey = "placeholderInitialsName"
+    static let initialsColourKey = "placeholderInitialsColour"
+
+    /// The chosen mode. Before modes existed, a stored image meant "my image".
+    static var mode: PlaceholderMode {
+        get {
+            if let raw = UserDefaults.standard.string(forKey: modeKey), let mode = PlaceholderMode(rawValue: raw) {
+                return mode == .image && !isCustom ? .standard : mode
+            }
+            return isCustom ? .image : .standard
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: modeKey) }
+    }
+
+    static var initialsName: String { UserDefaults.standard.string(forKey: initialsNameKey) ?? "" }
+    static var initialsColour: InitialsPlaceholder.Colour {
+        InitialsPlaceholder.colour(id: UserDefaults.standard.string(forKey: initialsColourKey) ?? "")
+    }
+
+    /// Changes whenever what the placeholder looks like changes, so renderings can be cached.
+    static var cacheKey: String {
+        switch mode {
+        case .standard: return "default"
+        case .image: return "image|\(revision)"
+        case .initials: return "initials|\(initialsName)|\(initialsColour.id)"
+        }
+    }
+
+    /// The placeholder content for `dimensions`: nil means the built-in artwork.
+    static func content(for dimensions: Dimensions) -> (image: CGImage, source: String)? {
+        switch mode {
+        case .standard:
+            return nil
+        case .image:
+            return loadImage().map { ($0, "custom image \($0.width)x\($0.height)") }
+        case .initials:
+            return InitialsPlaceholder.render(name: initialsName, colour: initialsColour, dimensions: dimensions)
+                .map { ($0, "initials (\(initialsColour.name))") }
+        }
+    }
+}
+
 /// The user's own placeholder image (UR-26): a PNG, JPEG or HEIC the user picks in Settings.
 ///
 /// The chosen file is copied into the app's container, so it keeps working if the original is
@@ -53,12 +115,14 @@ enum PlaceholderImageStore {
         UserDefaults.standard.set(name, forKey: fileKey)
         UserDefaults.standard.set(source.lastPathComponent, forKey: originalNameKey)
         if let previous { try? FileManager.default.removeItem(at: previous) }
+        mode = .image
         changed()
         log.notice("Custom placeholder set (\(ext, privacy: .public))")
     }
 
-    /// Goes back to the built-in artwork.
+    /// Removes the stored image; the built-in artwork is used unless initials are chosen.
     static func useDefault() {
+        if mode == .image { mode = .standard }
         if let previous = storedFileURL { try? FileManager.default.removeItem(at: previous) }
         UserDefaults.standard.removeObject(forKey: fileKey)
         UserDefaults.standard.removeObject(forKey: originalNameKey)
