@@ -83,6 +83,18 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         return nil
     }
 
+    /// The standard session preset that captures at exactly `size`, if there is one.
+    private static func preset(for size: Dimensions) -> AVCaptureSession.Preset? {
+        switch (size.width, size.height) {
+        case (3840, 2160): return .hd4K3840x2160
+        case (1920, 1080): return .hd1920x1080
+        case (1280, 720): return .hd1280x720
+        case (960, 540): return .qHD960x540
+        case (640, 480): return .vga640x480
+        default: return nil
+        }
+    }
+
     /// True when the mode supports the main system video effects: Background replacement where the
     /// system has it (macOS 15+), otherwise Portrait.
     private static func supportsEffects(_ format: AVCaptureDevice.Format) -> Bool {
@@ -146,10 +158,20 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             }
             session.addInput(input)
             session.addOutput(output)
+            // Capture in the camera's native mode (see nativeFormat). Prefer the matching standard
+            // session preset and let macOS configure the camera, as Photo Booth and FaceTime do:
+            // the system video effects chosen for OffSight (Background, Portrait…) were reported
+            // active yet left frames unchanged while OffSight set the device's format itself.
+            let mode = Self.nativeMode(of: device)
+            var usedPreset = false
+            if let mode, let preset = Self.preset(for: mode.dimensions), session.canSetSessionPreset(preset) {
+                session.sessionPreset = preset
+                usedPreset = true
+                log.info("Capturing with preset \(preset.rawValue, privacy: .public) for \(mode.dimensions.description, privacy: .public)")
+            }
             session.commitConfiguration()
-            // Capture in the camera's native mode (see nativeFormat). On macOS this is done by
-            // setting the device's active format directly; there is no input-priority preset.
-            if let mode = Self.nativeMode(of: device) {
+            // No matching preset: set the device's active format directly.
+            if let mode, !usedPreset {
                 do {
                     try device.lockForConfiguration()
                     device.activeFormat = mode.format
