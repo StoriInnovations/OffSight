@@ -146,7 +146,10 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         do {
             let input = try AVCaptureDeviceInput(device: device)
             let output = AVCaptureVideoDataOutput()
-            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+            // The camera's own YUV format, not BGRA: the system video effects chosen for OffSight
+            // reached the preview but not frames converted to BGRA on delivery. SinkFeeder converts
+            // to OffSight Camera's BGRA format with its pixel transfer (which also scales).
+            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
             output.alwaysDiscardsLateVideoFrames = true
             output.setSampleBufferDelegate(self, queue: frameQueue)
 
