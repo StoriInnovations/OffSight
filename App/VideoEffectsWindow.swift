@@ -31,6 +31,7 @@ final class VideoEffectsWindowController: NSObject, NSWindowDelegate {
             newWindow.title = "Video Effects for Live Video"
             newWindow.styleMask = [.titled, .closable]
             newWindow.isReleasedWhenClosed = false
+            newWindow.sharingType = .none // NFR-05: keep the preview out of screen sharing
             newWindow.delegate = self
             newWindow.center()
             window = newWindow

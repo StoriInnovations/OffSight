@@ -24,6 +24,8 @@ final class AppController: StatusMenuActions {
     /// Recent client and policy changes, for diagnostics (no images, app names only).
     private var timeline: [String] = []
     private var lastPolicySummary = ""
+    private var notRunningSince: Date?
+    private var restartNoticeShown = false
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss.SSS"
@@ -89,6 +91,23 @@ final class AppController: StatusMenuActions {
             guard let self else { return }
             self.engine.tick(now: Date())
             self.apply()
+        }
+        // NFR-12: the live camera unplugged mid-session. Close every shutter (no silent switch to
+        // another camera while live) and pick a camera again for next time.
+        NotificationCenter.default.addObserver(forName: AVCaptureDevice.wasDisconnectedNotification,
+                                               object: nil, queue: .main) { [weak self] notification in
+            guard let self, let device = notification.object as? AVCaptureDevice,
+                  device.uniqueID == self.capture.device?.uniqueID else { return }
+            let wasLive = self.engine.outputLive
+            self.log.notice("Live camera \(device.localizedName, privacy: .public) disconnected; closing all shutters")
+            self.note("camera disconnected: \(device.localizedName)")
+            self.engine.closeAllShutters()
+            self.capture.reselectCamera()
+            self.apply()
+            if wasLive {
+                self.notifier.notice(title: "Camera disconnected",
+                                     body: "\(device.localizedName) was unplugged, so every app is back on the placeholder. Go live again from the OffSight menu.")
+            }
         }
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification,
                                                           object: nil, queue: .main) { [weak self] _ in
@@ -183,6 +202,22 @@ final class AppController: StatusMenuActions {
         }
     }
 
+    /// After an update, macOS sometimes keeps the new camera extension stopped until a restart.
+    /// Say so once, 20 s after it is first seen installed but not running.
+    private func checkExtensionRunning() {
+        guard installer.state == .activated, !link.isConnected else {
+            notRunningSince = nil
+            return
+        }
+        let since = notRunningSince ?? Date()
+        notRunningSince = since
+        guard !restartNoticeShown, Date().timeIntervalSince(since) > 20 else { return }
+        restartNoticeShown = true
+        log.notice("Camera extension installed but not running; suggesting a restart")
+        notifier.notice(title: "Restart to finish setting up OffSight Camera",
+                        body: "macOS installed the camera extension but hasn't started it. Restart your Mac; meeting apps keep the placeholder until then.")
+    }
+
     private func note(_ text: String) {
         timeline.append("\(Self.timeFormatter.string(from: Date())) \(text)")
         if timeline.count > 40 { timeline.removeFirst(timeline.count - 40) }
@@ -253,6 +288,7 @@ final class AppController: StatusMenuActions {
         menu.camerasBypassed = bypass.camerasInUse
         menu.bypassSuspects = bypass.bypassDetected ? bypassSuspects() : []
         menu.pausedUntil = engine.pausedUntil
+        checkExtensionRunning()
         if link.isConnected {
             menu.extensionStatus = "Connected"
         } else if installer.state == .activated {

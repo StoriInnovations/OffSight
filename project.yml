@@ -62,6 +62,13 @@ targets:
           - "Info.plist"
           - "*.entitlements"
           - "Help/**"
+          - "LaunchAgents/**"
+      # Launch agent for launch at login and relaunch after a crash (SMAppService.agent).
+      - path: App/LaunchAgents/com.storiinnovations.offsight.agent.plist
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchAgents
       # Help page and its images, copied as a folder to Contents/Resources/Help.
       - path: App/Help
         type: folder

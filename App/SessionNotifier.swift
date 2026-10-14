@@ -29,6 +29,13 @@ final class SessionNotifier {
         liveApps = live
     }
 
+    /// A one-off notice that matters for safety or setup (camera unplugged, restart needed).
+    /// Shown whenever macOS allows notifications, whatever the live/ended setting.
+    func notice(title: String, body: String) {
+        requestAuthorisationIfNeeded()
+        post(title: title, body: body)
+    }
+
     private func requestAuthorisationIfNeeded() {
         guard !authorisationRequested else { return }
         authorisationRequested = true

@@ -57,6 +57,11 @@ jobs:
           APP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app"
           ls -R "$APP/Contents/Library/SystemExtensions" | head -20
           test -d "$APP/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension"
+      - name: Launch agent is bundled
+        run: |
+          AGENT="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app/Contents/Library/LaunchAgents/com.storiinnovations.offsight.agent.plist"
+          plutil -lint "$AGENT"
+          test "$(plutil -extract BundleProgram raw "$AGENT")" = "Contents/MacOS/OffSight"
       - name: Help page is bundled
         run: |
           HELP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app/Contents/Resources/Help"
