@@ -29,6 +29,8 @@ jobs:
         run: swift --version
       - name: Test
         run: swift test --package-path Packages/OffSightCore
+      - name: Build the on-device test tool
+        run: swift build --package-path Tools/OffSightTest
 
   build:
     name: Build (${{ matrix.configuration }}, unsigned)

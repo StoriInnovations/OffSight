@@ -82,6 +82,9 @@ final class PromptPanelController {
         ])
     }
 
+    /// When the prompt for `app` first appeared (nil if it isn't showing).
+    func shownAt(for app: AppKey) -> Date? { shownAt[app] }
+
     private func positionPanel() {
         guard let screen = NSScreen.main else { return }
         let size = panel.frame.size

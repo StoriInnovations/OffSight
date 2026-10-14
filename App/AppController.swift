@@ -27,6 +27,9 @@ final class AppController: StatusMenuActions {
     /// Website of each browser session (UR-34a), per session start; nil while unknown.
     private var browserSites: [AppKey: (sessionStart: Date, host: String?)] = [:]
     private var notRunningSince: Date?
+    #if DEBUG
+    private var lastPublishedProtection: ProtectionState?
+    #endif
     private var restartNoticeShown = false
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -61,6 +64,9 @@ final class AppController: StatusMenuActions {
         statusItem = StatusItemController(actions: self)
         wireSettings()
         wireOnboarding()
+        #if DEBUG
+        startTestHook()
+        #endif
 
         capture.onFrame = { [weak self] frame in self?.feeder.handle(frame) }
         prompts.model.onApprove = { [weak self] app in self?.goLive(app) }
@@ -268,7 +274,8 @@ final class AppController: StatusMenuActions {
 
         let policySummary = engine.activeSessions.map { "\(name(of: $0.app)) \($0.phase.rawValue)" }.joined(separator: ", ")
             + " | prompts \(pending.count), live \(live)"
-        if policySummary != lastPolicySummary {
+        let policyChanged = policySummary != lastPolicySummary
+        if policyChanged {
             lastPolicySummary = policySummary
             note("policy: \(policySummary)")
         }
@@ -312,6 +319,13 @@ final class AppController: StatusMenuActions {
         if model.extensionStatus != menu.extensionStatus { model.extensionStatus = menu.extensionStatus }
         if model.extensionConnected != link.isConnected { model.extensionConnected = link.isConnected }
         if model.extensionNeedsApproval != menu.extensionNeedsApproval { model.extensionNeedsApproval = menu.extensionNeedsApproval }
+
+        #if DEBUG
+        if policyChanged || menu.protectionState != lastPublishedProtection {
+            lastPublishedProtection = menu.protectionState
+            publishTestState()
+        }
+        #endif
 
         let liveApps = live ? Set(engine.activeSessions.filter { $0.phase == .live }.map(\.app)) : []
         notifier.update(live: liveApps, active: Set(engine.activeSessions.map(\.app)), name: name(of:))
@@ -425,3 +439,78 @@ final class AppController: StatusMenuActions {
         NSPasteboard.general.setString(report, forType: .string)
     }
 }
+
+#if DEBUG
+// MARK: - Test hook (Debug builds only)
+
+/// Lets the on-device test tool (Tools/OffSightTest) drive and observe OffSight through
+/// distributed notifications. Compiled only into Debug builds: Release and App Store builds have
+/// no way for another process to approve a session (NFR-04).
+extension AppController {
+    fileprivate func startTestHook() {
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name(TestHook.commandNotification),
+                                                            object: nil, queue: .main) { [weak self] notification in
+            guard let self, let text = notification.object as? String,
+                  let command = TestHook.Command(encoded: text) else { return }
+            self.note("test hook: \(text)")
+            self.handleTestCommand(command)
+        }
+        log.notice("Test hook listening (Debug build)")
+    }
+
+    private func handleTestCommand(_ command: TestHook.Command) {
+        let now = Date()
+        func apps(_ selector: String) -> [AppKey] {
+            selector == "*" ? engine.activeSessions.map(\.app) : [AppKey(selector)]
+        }
+        switch command {
+        case .state:
+            break
+        case .approve(let selector):
+            for app in apps(selector) { engine.approve(app, now: now) }
+        case .keepPlaceholder(let selector):
+            for app in apps(selector) { engine.keepPlaceholder(app) }
+        case .closeAllShutters:
+            engine.closeAllShutters()
+        case .pause(let minutes):
+            engine.pause(until: now.addingTimeInterval(TimeInterval(minutes * 60)), now: now)
+        case .resume:
+            engine.resume(now: now)
+        case .setPromptExpiry(let seconds):
+            UserDefaults.standard.set(seconds, forKey: AppDefaults.promptExpiryKey)
+            settingsChanged()
+        case .setGracePeriod(let seconds):
+            UserDefaults.standard.set(seconds, forKey: AppDefaults.gracePeriodKey)
+            settingsChanged()
+        }
+        apply()
+        publishTestState()
+    }
+
+    fileprivate func publishTestState() {
+        let pending = engine.pendingPrompts
+        let state = TestHookState(
+            time: Date().timeIntervalSince1970,
+            live: engine.outputLive,
+            paused: engine.isPaused,
+            protectionState: "\(ProtectionState.current(bypassDetected: bypass.bypassDetected, policy: engine))",
+            sessions: engine.activeSessions.map {
+                .init(app: $0.app.id, name: name(of: $0.app), phase: $0.phase.rawValue, startedAt: $0.startedAt.timeIntervalSince1970)
+            },
+            prompts: pending.map {
+                .init(app: $0.app.id, name: name(of: $0.app),
+                      shownAt: (prompts.shownAt(for: $0.app) ?? Date()).timeIntervalSince1970)
+            },
+            extensionConnected: link.isConnected,
+            cameraFormat: link.latestSnapshot?.activeFormat.description,
+            promptExpiry: engine.settings.promptExpiry,
+            gracePeriod: engine.settings.gracePeriod,
+            liveFramesSent: feeder.framesSent,
+            placeholderFramesSent: feeder.placeholderFramesSent,
+            recentEvents: Array(timeline.suffix(10)))
+        DistributedNotificationCenter.default().postNotificationName(Notification.Name(TestHook.stateNotification),
+                                                                     object: state.encodedJSON, userInfo: nil,
+                                                                     deliverImmediately: true)
+    }
+}
+#endif
