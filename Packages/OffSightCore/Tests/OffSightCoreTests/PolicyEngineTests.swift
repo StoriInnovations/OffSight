@@ -273,4 +273,60 @@ final class PolicyEngineTests: XCTestCase {
         engine.approve(zoom, now: t0)
         XCTAssertEqual(ProtectionState.current(bypassDetected: true, policy: engine), .unprotected)
     }
+
+    // MARK: More session rules
+
+    func testUndecidedSessionDroppedAfterGraceAsksAgainAsNewSession() {
+        var engine = PolicyEngine(settings: PolicySettings(promptExpiry: 30, gracePeriod: 5))
+        engine.clientsChanged([client(zoom)], now: t0)
+        engine.clientsChanged([], now: t0 + 1)
+        engine.tick(now: t0 + 7)
+        XCTAssertNil(engine.session(for: zoom), "undecided session discarded after grace")
+        engine.clientsChanged([client(zoom)], now: t0 + 20)
+        XCTAssertEqual(engine.session(for: zoom)?.phase, .pending)
+        XCTAssertEqual(engine.session(for: zoom)?.startedAt, t0 + 20, "a new session")
+    }
+
+    func testUndecidedRestartWhilePausedIsLiveWithoutPrompt() {
+        var engine = PolicyEngine()
+        engine.clientsChanged([client(zoom)], now: t0)
+        engine.pause(until: t0 + 600, now: t0 + 1)
+        engine.clientsChanged([], now: t0 + 2)
+        engine.clientsChanged([client(zoom)], now: t0 + 3)
+        XCTAssertTrue(engine.outputLive, "paused: live without asking")
+        XCTAssertTrue(engine.pendingPrompts.isEmpty)
+        XCTAssertNil(engine.session(for: zoom)?.promptExpiresAt)
+        engine.resume(now: t0 + 4)
+        XCTAssertFalse(engine.outputLive)
+        XCTAssertEqual(engine.pendingPrompts.map(\.app), [zoom], "resuming asks again")
+    }
+
+    func testSeveralAppsGetTheirOwnPrompts() {
+        // UR-15
+        var engine = PolicyEngine()
+        engine.clientsChanged([client(zoom), client(teams)], now: t0)
+        XCTAssertEqual(Set(engine.pendingPrompts.map(\.app)), [zoom, teams])
+        engine.approve(zoom, now: t0 + 1)
+        XCTAssertEqual(engine.pendingPrompts.map(\.app), [teams], "approving one leaves the other asking")
+        XCTAssertFalse(engine.outputLive, "D-1: nothing live while another app is unapproved")
+    }
+
+    func testCloseAllWhilePendingRemovesPromptsAndStaysPlaceholder() {
+        var engine = PolicyEngine()
+        engine.clientsChanged([client(zoom), client(teams)], now: t0)
+        engine.closeAllShutters()
+        XCTAssertTrue(engine.pendingPrompts.isEmpty)
+        XCTAssertFalse(engine.outputLive)
+        XCTAssertEqual(engine.session(for: zoom)?.phase, .placeholder)
+        XCTAssertTrue(engine.approve(zoom, now: t0 + 1), "can still go live later from the menu (UR-13)")
+    }
+
+    func testNewPromptExpiryAppliesToTheNextPrompt() {
+        var engine = PolicyEngine(settings: PolicySettings(promptExpiry: 30, gracePeriod: 15))
+        engine.updateSettings(PolicySettings(promptExpiry: 5, gracePeriod: 15))
+        engine.clientsChanged([client(zoom)], now: t0)
+        XCTAssertEqual(engine.session(for: zoom)?.promptExpiresAt, t0 + 5)
+        engine.tick(now: t0 + 6)
+        XCTAssertEqual(engine.session(for: zoom)?.phase, .placeholder)
+    }
 }
