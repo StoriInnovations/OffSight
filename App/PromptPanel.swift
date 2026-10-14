@@ -55,7 +55,10 @@ final class PromptPanelController {
         var items = newItems
         for index in items.indices {
             let app = items[index].app
-            if shownAt[app] == nil { shownAt[app] = now }
+            if shownAt[app] == nil {
+                shownAt[app] = now
+                announce("\(items[index].displayName) wants to use your camera. It sees the placeholder until you go live. To go live, use the OffSight menu.")
+            }
             items[index] = PromptItem(app: app, displayName: items[index].displayName, icon: items[index].icon,
                                       expiresAt: items[index].expiresAt, shownAt: shownAt[app]!)
         }
@@ -69,6 +72,14 @@ final class PromptPanelController {
             positionPanel()
             panel.orderFrontRegardless()
         }
+    }
+
+    /// VoiceOver users hear new prompts even though the panel never takes focus (UR-14, NFR-13).
+    private func announce(_ text: String) {
+        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [
+            .announcement: text,
+            .priority: NSAccessibilityPriorityLevel.high.rawValue,
+        ])
     }
 
     private func positionPanel() {
@@ -97,6 +108,7 @@ private struct PromptListView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             CameraPreview(session: session)
+                .accessibilityLabel("Camera preview, visible only to you")
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(alignment: .bottomLeading) {
@@ -128,6 +140,7 @@ private struct PromptCard: View {
             HStack(spacing: 10) {
                 if let icon = item.icon {
                     Image(nsImage: icon).resizable().frame(width: 32, height: 32)
+                        .accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(item.displayName) wants to use your camera").font(.headline)
@@ -148,6 +161,9 @@ private struct PromptCard: View {
                 Button("Go live for this session") {
                     if ApprovalInputGuard.isGenuine(shownAt: item.shownAt) { onApprove() }
                 }
+                // The prompt accepts only real clicks (threat T4), so VoiceOver activation is
+                // ignored here; the menu and the go-live shortcut work with VoiceOver.
+                .accessibilityHint("Click with the pointer, or use Go live in the OffSight menu.")
             }
         }
         .padding(10)

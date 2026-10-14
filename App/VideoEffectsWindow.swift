@@ -118,6 +118,7 @@ private struct VideoEffectsView: View {
             ZStack {
                 Color.black
                 CameraPreview(session: session)
+                    .accessibilityLabel("Camera preview, visible only to you")
                 if !model.cameraAuthorised {
                     Text("OffSight needs camera access. Allow it in System Settings › Privacy & Security › Camera.")
                         .foregroundStyle(.white)
