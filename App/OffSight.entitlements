@@ -14,5 +14,17 @@
 	<true/>
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
+	<!-- Homebrew (Developer ID) and development builds only: read the front tab's website of a
+	     browser that is using OffSight Camera (UR-34a). Not in the App Store build. -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+	<key>com.apple.security.temporary-exception.apple-events</key>
+	<array>
+		<string>com.apple.Safari</string>
+		<string>com.google.Chrome</string>
+		<string>com.microsoft.edgemac</string>
+		<string>company.thebrowser.Browser</string>
+		<string>com.brave.Browser</string>
+	</array>
 </dict>
 </plist>

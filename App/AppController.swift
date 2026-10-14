@@ -24,6 +24,8 @@ final class AppController: StatusMenuActions {
     /// Recent client and policy changes, for diagnostics (no images, app names only).
     private var timeline: [String] = []
     private var lastPolicySummary = ""
+    /// Website of each browser session (UR-34a), per session start; nil while unknown.
+    private var browserSites: [AppKey: (sessionStart: Date, host: String?)] = [:]
     private var notRunningSince: Date?
     private var restartNoticeShown = false
     private static let timeFormatter: DateFormatter = {
@@ -271,9 +273,11 @@ final class AppController: StatusMenuActions {
             note("policy: \(policySummary)")
         }
 
+        lookUpBrowserSites()
+
         prompts.update(items: pending.map { session in
             let resolved = resolvedApps[session.app]
-            return PromptItem(app: session.app, displayName: resolved?.displayName ?? session.app.id,
+            return PromptItem(app: session.app, displayName: name(of: session.app),
                               icon: resolved?.bundleURL.map { NSWorkspace.shared.icon(forFile: $0.path) },
                               expiresAt: session.promptExpiresAt, shownAt: Date())
         })
@@ -326,7 +330,24 @@ final class AppController: StatusMenuActions {
     }
 
     private func name(of app: AppKey) -> String {
-        resolvedApps[app]?.displayName ?? app.id
+        let base = resolvedApps[app]?.displayName ?? app.id
+        return BrowserSite.label(browser: base, host: browserSites[app]?.host)
+    }
+
+    /// Best effort (UR-34a): once per browser session, ask the browser for its front tab's site.
+    private func lookUpBrowserSites() {
+        guard BrowserContext.isAvailable else { return }
+        for session in engine.activeSessions where KnownClients.match(signingID: session.app.id)?.isBrowser == true {
+            guard browserSites[session.app]?.sessionStart != session.startedAt else { continue }
+            let start = session.startedAt
+            browserSites[session.app] = (start, nil)
+            BrowserContext.frontSite(bundleID: session.app.id) { [weak self] host in
+                guard let self, let host, self.browserSites[session.app]?.sessionStart == start else { return }
+                self.browserSites[session.app] = (start, host)
+                self.note("site for \(session.app.id): \(host)")
+                self.apply()
+            }
+        }
     }
 
     /// Known meeting apps that are running but not connected to OffSight Camera (C6: best effort).
