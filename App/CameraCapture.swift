@@ -12,6 +12,8 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     let session = AVCaptureSession()
     private(set) var deviceName: String?
+    /// The physical camera in use, once configured.
+    private(set) var device: AVCaptureDevice?
     private(set) var isConfigured = false
     private(set) var isRunning = false
     private var lastStopRequestedAt: Date?
@@ -132,6 +134,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 }
             }
             deviceName = device.localizedName
+            self.device = device
             isConfigured = true
             log.info("Capture configured with \(device.localizedName, privacy: .public)")
             return true
@@ -156,6 +159,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         isRunning = false
         isConfigured = false
         deviceName = nil
+        device = nil
         nativeFormat = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }
         log.info("Live camera reselected: \(self.selectDevice()?.localizedName ?? "none", privacy: .public)")
     }

@@ -156,7 +156,7 @@ private struct PromptCard: View {
 }
 
 /// Local-only preview from OffSight's own capture session; never sent to the sink (UR-08).
-private struct CameraPreview: NSViewRepresentable {
+struct CameraPreview: NSViewRepresentable {
     let session: AVCaptureSession
 
     func makeNSView(context: Context) -> NSView {

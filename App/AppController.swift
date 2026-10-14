@@ -21,6 +21,17 @@ final class AppController: StatusMenuActions {
     private var resolvedApps: [AppKey: ResolvedApp] = [:]
     private var nextFormatRequest = Date.distantPast
     private let shortcuts = GlobalShortcuts()
+    /// True while the Video Effects window is open: OffSight's capture runs so the system can show
+    /// and apply effects for OffSight. Live frames still go out only when the policy says so.
+    private var effectsWindowOpen = false
+    private lazy var effectsWindow: VideoEffectsWindowController = {
+        let controller = VideoEffectsWindowController(session: capture.session) { [weak self] in self?.capture.device }
+        controller.onVisibilityChange = { [weak self] open in
+            self?.effectsWindowOpen = open
+            self?.apply()
+        }
+        return controller
+    }()
     private let notifier = SessionNotifier()
     private let settingsModel = SettingsModel()
     /// Settings values last applied, to react only to real changes.
@@ -165,7 +176,7 @@ final class AppController: StatusMenuActions {
         let pending = engine.pendingPrompts
         let cameraAuthorized = CameraCapture.authorizationStatus == .authorized
 
-        capture.setRunning(cameraAuthorized && (live || !pending.isEmpty))
+        capture.setRunning(cameraAuthorized && (live || !pending.isEmpty || effectsWindowOpen))
         if let snapshot {
             // The tag carries the generation this decision was made for; if the client set has
             // changed since, the extension rejects these frames until we catch up (§5.2).
@@ -279,11 +290,10 @@ final class AppController: StatusMenuActions {
         }
     }
 
+    /// Effects chosen for OffSight apply to its own capture of the physical camera, so they reach
+    /// meeting apps with the live video and never touch the placeholder.
     func openVideoEffects() {
-        // Effects chosen here apply to OffSight's own capture of the physical camera, so they reach
-        // meeting apps with the live video and never touch the placeholder.
-        NSApp.activate(ignoringOtherApps: true)
-        AVCaptureDevice.showSystemUserInterface(.videoEffects)
+        effectsWindow.show()
     }
 
     func openSettings() { settingsWindow.show() }
