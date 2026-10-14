@@ -49,13 +49,14 @@ final class AppController: StatusMenuActions {
     private lazy var settingsWindow = HostedWindowController(title: "OffSight Settings") { [settingsModel] in
         SettingsView(model: settingsModel)
     }
+    private let onboarding = OnboardingWindowController()
     private lazy var aboutWindow = HostedWindowController(title: "About OffSight") { AboutView() }
 
     func start() {
         AppDefaults.register()
-        LaunchAtLogin.applyDefaultOnFirstRun()
         statusItem = StatusItemController(actions: self)
         wireSettings()
+        wireOnboarding()
 
         capture.onFrame = { [weak self] frame in self?.feeder.handle(frame) }
         prompts.model.onApprove = { [weak self] app in self?.goLive(app) }
@@ -98,6 +99,25 @@ final class AppController: StatusMenuActions {
         apply()
     }
 
+    // MARK: Onboarding
+
+    private func wireOnboarding() {
+        onboarding.model.installExtension = { [weak self] in self?.installer.activate() }
+        onboarding.model.openExtensionApproval = { [weak self] in self?.openExtensionApproval() }
+        onboarding.model.finished = { [weak self] launchAtLogin in
+            // UR-38 with consent: the choice made on the last step (pre-ticked).
+            LaunchAtLogin.setEnabled(launchAtLogin)
+            UserDefaults.standard.set(true, forKey: AppDefaults.onboardingCompletedKey)
+            self?.settingsModel.refresh()
+            self?.onboarding.close()
+        }
+        if !UserDefaults.standard.bool(forKey: AppDefaults.onboardingCompletedKey) {
+            DispatchQueue.main.async { [weak self] in self?.onboarding.show() }
+        }
+    }
+
+    func showOnboarding() { onboarding.show() }
+
     // MARK: Settings
 
     private func wireSettings() {
@@ -107,6 +127,7 @@ final class AppController: StatusMenuActions {
         settingsModel.openExtensionApproval = { [weak self] in self?.openExtensionApproval() }
         settingsModel.openCameraPrivacySettings = { [weak self] in self?.openCameraPrivacySettings() }
         settingsModel.copyDiagnostics = { [weak self] in self?.copyDiagnostics() }
+        settingsModel.showOnboarding = { [weak self] in self?.showOnboarding() }
 
         shortcuts.onAction = { [weak self] action in
             guard let self else { return }
@@ -247,6 +268,10 @@ final class AppController: StatusMenuActions {
         if settingsModel.extensionStatus != menu.extensionStatus {
             settingsModel.extensionStatus = menu.extensionStatus
         }
+        let model = onboarding.model
+        if model.extensionStatus != menu.extensionStatus { model.extensionStatus = menu.extensionStatus }
+        if model.extensionConnected != link.isConnected { model.extensionConnected = link.isConnected }
+        if model.extensionNeedsApproval != menu.extensionNeedsApproval { model.extensionNeedsApproval = menu.extensionNeedsApproval }
 
         let liveApps = live ? Set(engine.activeSessions.filter { $0.phase == .live }.map(\.app)) : []
         notifier.update(live: liveApps, active: Set(engine.activeSessions.map(\.app)), name: name(of:))

@@ -3,7 +3,8 @@ import OffSightCore
 import os
 import ServiceManagement
 
-/// "Launch at login" (UR-38), on by default: turned on once on first run, then left to the user.
+/// "Launch at login" (UR-38). Offered pre-ticked on the last onboarding step, so it is on by
+/// default but only with the user's consent (Mac App Store guideline 2.4.5).
 enum LaunchAtLogin {
     private static let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "login")
 
@@ -22,14 +23,6 @@ enum LaunchAtLogin {
         } catch {
             log.error("Launch at login \(enabled ? "on" : "off") failed: \(error.localizedDescription, privacy: .public)")
         }
-    }
-
-    /// First run: on by default (UR-38). Later runs respect whatever the user chose.
-    static func applyDefaultOnFirstRun() {
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: AppDefaults.launchAtLoginInitialisedKey) else { return }
-        defaults.set(true, forKey: AppDefaults.launchAtLoginInitialisedKey)
-        setEnabled(true)
     }
 
     static func openSystemSettings() {

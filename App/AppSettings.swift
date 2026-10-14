@@ -9,8 +9,8 @@ enum AppDefaults {
     // General
     static let useColouredStatusIconKey = "useColouredStatusIcon"
     static let notificationsEnabledKey = "notificationsEnabled"
-    /// Set once launch at login has been turned on by default on first run (UR-38).
-    static let launchAtLoginInitialisedKey = "launchAtLoginInitialised"
+    /// Set when the first-run guide has been completed (UR-37).
+    static let onboardingCompletedKey = "onboardingCompleted"
 
     // Camera
     /// `AVCaptureDevice.uniqueID` of the live camera; empty means automatic (built-in first).

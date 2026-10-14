@@ -23,6 +23,7 @@ final class SettingsModel: ObservableObject {
     var openExtensionApproval: () -> Void = {}
     var openCameraPrivacySettings: () -> Void = {}
     var copyDiagnostics: () -> Void = {}
+    var showOnboarding: () -> Void = {}
 
     func refresh() {
         launchAtLogin = LaunchAtLogin.isEnabled
@@ -103,6 +104,10 @@ private struct GeneralTab: View {
             Section {
                 Toggle("Coloured status icon", isOn: $colouredIcon)
                 Note("Adds a coloured badge to the menu bar icon. The shapes alone always show the state.")
+            }
+            Section {
+                Button("Show Welcome Guide…", action: model.showOnboarding)
+                Note("Walks through setup again: the camera extension, permissions and your meeting apps.")
             }
         }
         .formStyle(.grouped)
