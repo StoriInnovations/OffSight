@@ -120,7 +120,7 @@ extension Scenarios {
         UI.press(goLive.element)
         Wait.sleep(1.5)
         let after = ctx.app.state()
-        let liveFrames = (Probe.counters()?.live ?? before.live) - before.live
+        let liveFrames = Probe.delta(Probe.counters()?.live ?? before.live, before.live)
         metrics.append(("after automated press", "live \(after?.live ?? false), live frames \(liveFrames)"))
         if after?.live == true || liveFrames > 0 {
             ctx.app.send(.closeAllShutters)

@@ -111,7 +111,7 @@ enum Scenarios {
         guard Wait.until(5, { client.frameCount >= 15 }) != nil else { return .fail("No frames from OffSight Camera within 5 s") }
         Wait.sleep(2)
         guard let before, let after = Probe.counters() else { return .fail("Camera counters unavailable") }
-        let live = after.live - before.live, placeholders = after.placeholders - before.placeholders
+        let live = Probe.delta(after.live, before.live), placeholders = Probe.delta(after.placeholders, before.placeholders)
         let metrics = [("live frames", "\(live)"), ("placeholder frames", "\(placeholders)"),
                        ("client fps", String(format: "%.1f", client.fps(window: 2)))]
         if live > 0 { return .fail("Live frames reached an unapproved app", metrics) }

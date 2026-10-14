@@ -13,6 +13,11 @@ enum Probe {
         var placeholders: UInt64 { appPlaceholder + fallback }
     }
 
+    /// `after - before`, or 0 if the counters went back (the camera extension restarted).
+    static func delta(_ after: UInt64, _ before: UInt64) -> UInt64 {
+        after >= before ? after - before : 0
+    }
+
     static func snapshot() -> ClientSnapshot? {
         guard let stream = sourceStream(),
               let json = string(of: stream, selector: fourCharCode(OffSightConstants.snapshotPropertyFourCC)) else { return nil }
