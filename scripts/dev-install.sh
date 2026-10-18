@@ -64,3 +64,10 @@ if [[ "$EXTENSION_CHANGED" == yes ]]; then
   echo "The camera extension changed, so macOS will replace it. If OffSight Camera does not"
   echo "appear within ~15 seconds (the OffSight menu says so too), restart the Mac once."
 fi
+
+# What macOS has installed. "[activated enabled]" with this build number is the one that runs;
+# an older build marked "terminated waiting to uninstall on reboot" goes away at the next restart.
+# OffSight › About shows the build actually running.
+echo
+echo "Camera extension builds known to macOS (this app carries build $EXTENSION_BUILD):"
+systemextensionsctl list 2>/dev/null | grep -i "offsight" || echo "  none listed yet"

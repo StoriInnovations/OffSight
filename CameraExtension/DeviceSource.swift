@@ -228,7 +228,8 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
                               clients: tracker.sortedRecords, stats: gate.stats,
                               sinkConnected: sinkClient != nil, sinkAuthMode: sinkAuthMode,
                               sink: sinkStats, pendingFormat: pendingFormat,
-                              source: sourceStats).encodedJSON()
+                              source: sourceStats,
+                              extensionVersion: BuildVersion(infoDictionary: Bundle.main.infoDictionary)).encodedJSON()
     }
 
     private func publishSnapshot() {

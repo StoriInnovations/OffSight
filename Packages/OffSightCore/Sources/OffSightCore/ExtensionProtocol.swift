@@ -114,10 +114,14 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
     /// A camera format the app asked for, applied once no app is using OffSight Camera.
     public var pendingFormat: Dimensions?
     public var source: SourceStats?
+    /// The running extension's own version, so the app can tell whether macOS has loaded the
+    /// extension build it carries (nil from extensions built before this was added).
+    public var extensionVersion: BuildVersion?
 
     public init(epoch: UInt64, generation: UInt64, activeFormat: Dimensions, clients: [ClientRecord],
                 stats: GateStats = GateStats(), sinkConnected: Bool = false, sinkAuthMode: String = "none",
-                sink: SinkStats? = nil, pendingFormat: Dimensions? = nil, source: SourceStats? = nil) {
+                sink: SinkStats? = nil, pendingFormat: Dimensions? = nil, source: SourceStats? = nil,
+                extensionVersion: BuildVersion? = nil) {
         self.epoch = epoch
         self.generation = generation
         self.activeFormat = activeFormat
@@ -128,6 +132,7 @@ public struct ClientSnapshot: Codable, Equatable, Sendable {
         self.sink = sink
         self.pendingFormat = pendingFormat
         self.source = source
+        self.extensionVersion = extensionVersion
     }
 
     /// True when the parts that drive approval decisions are identical (stats are ignored).

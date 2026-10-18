@@ -32,6 +32,13 @@ final class ExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
     private(set) var state: State = .unknown { didSet { onChange?() } }
     private let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "installer")
 
+    /// Version of the camera extension embedded in this app (what activation installs).
+    private(set) lazy var bundledVersion: BuildVersion? = {
+        let plist = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Library/SystemExtensions/\(extensionIdentifier).systemextension/Contents/Info.plist")
+        return BuildVersion(infoDictionary: NSDictionary(contentsOf: plist) as? [String: Any])
+    }()
+
     private var extensionIdentifier: String {
         Bundle.main.object(forInfoDictionaryKey: "OffSightExtensionBundleID") as? String
             ?? "com.storiinnovations.offsight.camera-extension"

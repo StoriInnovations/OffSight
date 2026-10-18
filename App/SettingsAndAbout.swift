@@ -27,14 +27,30 @@ final class HostedWindowController<Content: View> {
     }
 }
 
+/// What the About window shows about the running builds, kept current by `AppController`.
+final class AboutModel: ObservableObject {
+    @Published var extensionLine = "Checking…"
+    @Published var extensionUpToDate = true
+}
+
 /// About window with the horizontal lockup. The imageset carries the on-light and on-dark
-/// artwork as appearance variants, so the effective appearance picks the right one.
+/// artwork as appearance variants, so the effective appearance picks the right one. It also shows
+/// the app's build and the camera extension build macOS is running, which can lag behind after
+/// an update until the Mac restarts.
 struct AboutView: View {
-    private var version: String {
-        let info = Bundle.main.infoDictionary ?? [:]
-        let short = info["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info["CFBundleVersion"] as? String ?? "?"
-        return "Version \(short) (\(build))"
+    @ObservedObject var model: AboutModel
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private var appVersion: String {
+        guard let version = BuildVersion(infoDictionary: Bundle.main.infoDictionary) else { return "Unknown" }
+        guard let date = version.buildDate else { return version.display }
+        return "\(version.display), built \(Self.dateFormatter.string(from: date))"
     }
 
     var body: some View {
@@ -47,14 +63,27 @@ struct AboutView: View {
             Text("A software camera shutter: meeting apps see a placeholder until you approve live video for each session.")
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(version)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
+                GridRow {
+                    Text("App").foregroundStyle(.secondary)
+                    Text(appVersion)
+                }
+                GridRow(alignment: .top) {
+                    Text("Camera extension").foregroundStyle(.secondary)
+                    Label(model.extensionLine,
+                          systemImage: model.extensionUpToDate ? "checkmark.circle" : "exclamationmark.triangle")
+                        .labelStyle(.titleAndIcon)
+                        .foregroundStyle(model.extensionUpToDate ? Color.primary : Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .font(.caption)
+            .textSelection(.enabled)
             Text("© 2026 Stori Innovations · MIT License")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding(24)
-        .frame(width: 380)
+        .frame(width: 420)
     }
 }

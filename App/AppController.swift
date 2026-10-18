@@ -60,7 +60,8 @@ final class AppController: StatusMenuActions {
         SettingsView(model: settingsModel)
     }
     private let onboarding = OnboardingWindowController()
-    private lazy var aboutWindow = HostedWindowController(title: "About OffSight") { AboutView() }
+    private let aboutModel = AboutModel()
+    private lazy var aboutWindow = HostedWindowController(title: "About OffSight") { [aboutModel] in AboutView(model: aboutModel) }
 
     func start() {
         AppDefaults.register()
@@ -229,6 +230,23 @@ final class AppController: StatusMenuActions {
                         body: "macOS installed the camera extension but hasn't started it. Restart your Mac; meeting apps keep the placeholder until then.")
     }
 
+    /// Which camera extension build macOS is running, against the one this app carries.
+    private var extensionVersionStatus: ExtensionVersionStatus {
+        ExtensionVersionStatus.evaluate(connected: link.isConnected, running: link.latestSnapshot?.extensionVersion,
+                                        bundled: installer.bundledVersion)
+    }
+
+    private func updateExtensionVersion() {
+        let status = extensionVersionStatus
+        let line = status.summary(bundled: installer.bundledVersion)
+        if aboutModel.extensionLine != line {
+            aboutModel.extensionLine = line
+            aboutModel.extensionUpToDate = status == .current
+            settingsModel.extensionVersion = line
+            note("camera extension: \(line)")
+        }
+    }
+
     /// Notes which macOS video effects are active on OffSight's camera whenever that changes, with
     /// what OffSight shows on screen at the time, to find what stops them reaching live video (B2).
     private func noteEffectsChange(live: Bool) {
@@ -335,6 +353,7 @@ final class AppController: StatusMenuActions {
         menu.extensionNeedsApproval = installer.state == .needsUserApproval
         menu.cameraAccessDenied = CameraCapture.authorizationStatus == .denied
         statusItem?.update(menu)
+        updateExtensionVersion()
         if settingsModel.extensionStatus != menu.extensionStatus {
             settingsModel.extensionStatus = menu.extensionStatus
         }
@@ -454,6 +473,7 @@ final class AppController: StatusMenuActions {
             engine: engine,
             captureDevice: capture.deviceName,
             nativeFormat: capture.nativeFormat,
+            extensionVersion: extensionVersionStatus.summary(bundled: installer.bundledVersion),
             captureMode: capture.activeModeDescription.map { "\($0); active now: \(capture.activeEffectsDescription)" },
             timeline: timeline,
             feeder: feeder,

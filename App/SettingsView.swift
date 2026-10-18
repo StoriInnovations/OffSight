@@ -11,6 +11,8 @@ final class SettingsModel: ObservableObject {
     }
 
     @Published var extensionStatus = ""
+    /// Running camera extension build against the one this app carries.
+    @Published var extensionVersion = ""
     @Published var launchAtLogin = false
     @Published var launchAtLoginNeedsApproval = false
     @Published var cameras: [CameraChoice] = []
@@ -270,6 +272,7 @@ private struct AdvancedTab: View {
         Form {
             Section {
                 LabeledContent("Camera extension", value: model.extensionStatus)
+                LabeledContent("Extension version", value: model.extensionVersion)
                 HStack {
                     Button("Install / Update", action: model.installExtension)
                     Button("Approve in System Settings…", action: model.openExtensionApproval)
