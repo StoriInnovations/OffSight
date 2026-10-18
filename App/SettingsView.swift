@@ -121,7 +121,6 @@ private struct GeneralTab: View {
 private struct CameraTab: View {
     @ObservedObject var model: SettingsModel
     @AppStorage(AppDefaults.liveCameraIDKey) private var cameraID = ""
-    @AppStorage(AppDefaults.selfViewWhileLiveKey) private var selfView = false
 
     var body: some View {
         Form {
@@ -143,8 +142,6 @@ private struct CameraTab: View {
             Section {
                 Button("Video Effects for Live Video…", action: model.openVideoEffects)
                 Note("Portrait, Background and other macOS effects chosen here apply to your live video in every meeting app, never to the placeholder.")
-                Toggle("Show a small self-view while live", isOn: $selfView)
-                Note("A preview only you can see, in a corner of the screen, while any app is live. Drag it to move it. Try it if an effect chosen for OffSight doesn't reach your meeting apps: macOS may apply effects only while OffSight shows video on screen.")
             }
         }
         .formStyle(.grouped)
@@ -267,8 +264,6 @@ private struct ShortcutRecorder: View {
 
 private struct AdvancedTab: View {
     @ObservedObject var model: SettingsModel
-    @AppStorage(AppDefaults.pauseSinkWhenIdleKey) private var pauseSink = false
-    @AppStorage(AppDefaults.liveConversionKey) private var conversion = LiveConversion.videoToolbox.rawValue
 
     var body: some View {
         Form {
@@ -285,16 +280,6 @@ private struct AdvancedTab: View {
             Section {
                 Button("Camera Privacy Settings…", action: model.openCameraPrivacySettings)
                 Note("OffSight needs camera access for the prompt preview and for live video.")
-            }
-            Section("Experiments") {
-                Toggle("Pause the video link to OffSight Camera while no app uses it", isOn: $pauseSink)
-                Note("For testing macOS video effects. While no meeting app uses OffSight Camera, OffSight then uses only your real camera, for example in the Video Effects window. Meeting apps are unaffected: they see the placeholder either way.")
-                Picker("Live video conversion", selection: $conversion) {
-                    ForEach(LiveConversion.allCases) { option in
-                        Text(option.label).tag(option.rawValue)
-                    }
-                }
-                Note("How live video is converted to OffSight Camera's format. Quit and reopen OffSight after changing it, so each choice is tested from a fresh start.")
             }
             Section {
                 Button("Copy Diagnostics", action: model.copyDiagnostics)

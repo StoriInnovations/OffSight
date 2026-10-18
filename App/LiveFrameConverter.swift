@@ -2,32 +2,12 @@ import Accelerate
 import CoreVideo
 import Foundation
 
-/// How live camera frames become OffSight Camera's BGRA format (B2 experiment).
+/// Copies camera frames into OffSight Camera's BGRA buffers, converting (420v) and scaling on the
+/// CPU when a frame isn't already BGRA at the right size. Capture queue only.
 ///
-/// macOS kept the Background effect on OffSight's preview until the first live frame went out;
-/// from then on, until OffSight restarted, every frame (preview included) came back without it.
-/// The live path was the only place that ran camera frames through a VideoToolbox pixel transfer
-/// (YUV to BGRA plus scaling), so the alternatives avoid it.
-enum LiveConversion: String, CaseIterable, Identifiable {
-    /// VideoToolbox pixel transfer (the original path).
-    case videoToolbox
-    /// Accelerate (vImage) on the CPU: YUV to BGRA, then scale.
-    case cpu
-    /// The capture output delivers BGRA at OffSight Camera's size; OffSight only copies it.
-    case captureOutput
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .videoToolbox: return "VideoToolbox (original)"
-        case .cpu: return "CPU (Accelerate)"
-        case .captureOutput: return "Camera output at full size"
-        }
-    }
-}
-
-/// Converts and scales camera frames on the CPU. Capture queue only.
+/// Deliberately not VideoToolbox: running camera frames through a `VTPixelTransferSession` made
+/// macOS stop applying the video effects chosen for OffSight (Background, Portrait…) to every
+/// frame in the process, preview included, until OffSight quit (B2).
 final class CPUFrameConverter {
     private var conversion = vImage_YpCbCrToARGB()
     private var conversionReady = false

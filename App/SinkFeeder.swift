@@ -20,21 +20,19 @@ final class SinkFeeder {
         var epoch: UInt64
         var generation: UInt64
         var format: Dimensions
-        /// How live frames are converted (B2 experiment).
-        var conversion: LiveConversion = .videoToolbox
     }
 
     private let link: ExtensionLink
     private let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "feeder")
     private let lock = NSLock()
     private var config: Config?
-    private var transferSession: VTPixelTransferSession?
-    /// Created on first use, so the VideoToolbox path is untouched unless chosen.
-    private var transferSessionTried = false
+    /// Live frames normally arrive from the capture output already BGRA at the right size and are
+    /// only copied; anything else (e.g. the first frames after a format change) is converted on
+    /// the CPU. Never VideoToolbox for camera frames: see `CameraCapture.setDeliveredBGRASize`.
     private let cpuConverter = CPUFrameConverter()
     /// Live frames that failed to convert (diagnostics).
     private(set) var conversionFailures: UInt64 = 0
-    /// Conversion used for the last live frame (diagnostics; any thread).
+    /// How the last live frame was produced (diagnostics; any thread).
     var lastConversion: String {
         lock.lock(); defer { lock.unlock() }
         return conversionUsed
@@ -99,7 +97,7 @@ final class SinkFeeder {
         // Gate 1: the app never sends live frames unless the policy says so.
         guard let current, current.sendLive else { return }
         guard let output = livePool.buffer(for: current.format) else { return }
-        guard convert(cameraFrame, into: output, using: current.conversion) else {
+        guard convert(cameraFrame, into: output) else {
             conversionFailures += 1
             return
         }
@@ -112,38 +110,20 @@ final class SinkFeeder {
     }
 
     /// Capture queue.
-    private func convert(_ cameraFrame: CVPixelBuffer, into output: CVPixelBuffer, using conversion: LiveConversion) -> Bool {
-        switch conversion {
-        case .videoToolbox:
-            if !transferSessionTried {
-                transferSessionTried = true
-                var session: VTPixelTransferSession?
-                if VTPixelTransferSessionCreate(allocator: kCFAllocatorDefault, pixelTransferSessionOut: &session) == noErr,
-                   let session {
-                    VTSessionSetProperty(session, key: kVTPixelTransferPropertyKey_ScalingMode, value: kVTScalingMode_Letterbox)
-                    transferSession = session
-                }
-            }
-            guard let transferSession else { return false }
-            noteConversion("VideoToolbox")
-            return VTPixelTransferSessionTransferImage(transferSession, from: cameraFrame, to: output) == noErr
-        case .cpu, .captureOutput:
-            // With .captureOutput the camera frame is normally BGRA at the right size already and
-            // this is a plain copy; until the capture output switches over it converts on the CPU.
-            let alreadyBGRA = CVPixelBufferGetPixelFormatType(cameraFrame) == kCVPixelFormatType_32BGRA
-            let sameSize = CVPixelBufferGetWidth(cameraFrame) == CVPixelBufferGetWidth(output)
-                && CVPixelBufferGetHeight(cameraFrame) == CVPixelBufferGetHeight(output)
-            noteConversion(alreadyBGRA && sameSize ? "copy of camera output" : "CPU (Accelerate)")
-            return cpuConverter.convert(cameraFrame, into: output)
-        }
+    private func convert(_ cameraFrame: CVPixelBuffer, into output: CVPixelBuffer) -> Bool {
+        let ready = CVPixelBufferGetPixelFormatType(cameraFrame) == kCVPixelFormatType_32BGRA
+            && CVPixelBufferGetWidth(cameraFrame) == CVPixelBufferGetWidth(output)
+            && CVPixelBufferGetHeight(cameraFrame) == CVPixelBufferGetHeight(output)
+        noteConversion(ready ? "copied from the camera output" : "converted on the CPU")
+        return cpuConverter.convert(cameraFrame, into: output)
     }
 
     // MARK: Placeholder
 
     /// Placeholder queue, 30 fps while needed. Never touches camera frames.
     ///
-    /// Produced exactly like a live frame (hardware transfer into a fresh pool buffer, attachments
-    /// removed), and each frame differs from the last by one invisible pixel, so no consumer can
+    /// Produced like a live frame (copied into a fresh pool buffer, here by a VideoToolbox transfer
+    /// of OffSight's own image, never of camera frames; attachments removed), and each frame differs from the last by one invisible pixel, so no consumer can
     /// mistake the stream for a stalled camera. (Photo Booth and Teams once showed grey here; the
     /// cause was macOS video effects, avoided by OffSight Camera's size, see `effectsFreeFormat`.)
     private func sendPlaceholderFrame() {

@@ -9,22 +9,6 @@ import os
 final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// Called on the capture queue for every frame.
     var onFrame: ((CVPixelBuffer) -> Void)?
-    /// A second, optional receiver of every frame (the "Sent to meeting apps" view). Set from any thread.
-    var onTapFrame: ((CVPixelBuffer) -> Void)? {
-        get {
-            tapLock.lock()
-            defer { tapLock.unlock() }
-            return tap
-        }
-        set {
-            tapLock.lock()
-            tap = newValue
-            tapLock.unlock()
-        }
-    }
-    private var tap: ((CVPixelBuffer) -> Void)?
-    private let tapLock = NSLock()
-
     let session = AVCaptureSession()
     private(set) var deviceName: String?
     /// The physical camera in use, once configured.
@@ -175,9 +159,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         do {
             let input = try AVCaptureDeviceInput(device: device)
             let output = AVCaptureVideoDataOutput()
-            // The camera's own YUV format, not BGRA: the system video effects chosen for OffSight
-            // reached the preview but not frames converted to BGRA on delivery. SinkFeeder converts
-            // to OffSight Camera's BGRA format with its pixel transfer (which also scales).
+            // BGRA at OffSight Camera's size once known (see setDeliveredBGRASize), else native YUV.
             output.videoSettings = Self.videoSettings(bgra: deliveredBGRASize)
             output.alwaysDiscardsLateVideoFrames = true
             output.setSampleBufferDelegate(self, queue: frameQueue)
@@ -237,8 +219,13 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 kCVPixelBufferHeightKey as String: size.height]
     }
 
-    /// Asks the capture output for BGRA frames at `size` (scaled by the capture pipeline), or for
-    /// the camera's own YUV at native size when nil (B2 experiment). Main thread.
+    /// Asks the capture output for BGRA frames at `size`, OffSight Camera's format, so live frames
+    /// need only a copy; nil gives the camera's own YUV at native size. Main thread.
+    ///
+    /// Why the capture output does the conversion and scaling: when OffSight converted camera frames
+    /// itself with a VideoToolbox pixel transfer, macOS stopped applying the video effects chosen
+    /// for OffSight (Background, Portrait…) to all of OffSight's frames, preview included, from
+    /// the first live frame until OffSight quit; frames from the capture output keep them (B2).
     func setDeliveredBGRASize(_ size: Dimensions?) {
         guard size != deliveredBGRASize else { return }
         deliveredBGRASize = size
@@ -288,6 +275,5 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         onFrame?(pixelBuffer)
-        onTapFrame?(pixelBuffer)
     }
 }

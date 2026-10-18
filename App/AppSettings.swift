@@ -15,14 +15,6 @@ enum AppDefaults {
     // Camera
     /// `AVCaptureDevice.uniqueID` of the live camera; empty means automatic (built-in first).
     static let liveCameraIDKey = "liveCameraUniqueID"
-    /// Show a small self-view while any app is live.
-    static let selfViewWhileLiveKey = "selfViewWhileLive"
-
-    // Advanced
-    /// Experiment (B2): stop the sink stream while no app uses OffSight Camera.
-    static let pauseSinkWhenIdleKey = "experimentPauseSinkWhenIdle"
-    /// Experiment (B2): how live frames are converted, a `LiveConversion` raw value.
-    static let liveConversionKey = "experimentLiveConversion"
 
     // Approvals
     static let promptExpiryKey = "promptExpirySeconds"
@@ -37,9 +29,6 @@ enum AppDefaults {
             useColouredStatusIconKey: false,
             notificationsEnabledKey: true,
             liveCameraIDKey: "",
-            selfViewWhileLiveKey: false,
-            pauseSinkWhenIdleKey: false,
-            liveConversionKey: LiveConversion.videoToolbox.rawValue,
             promptExpiryKey: PolicySettings.defaultPromptExpiry,
             gracePeriodKey: PolicySettings.defaultGracePeriod,
             panicShortcutKey: KeyboardShortcut.defaultPanic.storageString,
@@ -60,18 +49,6 @@ enum AppDefaults {
     static var liveCameraID: String? {
         let id = UserDefaults.standard.string(forKey: liveCameraIDKey) ?? ""
         return id.isEmpty ? nil : id
-    }
-
-    static var selfViewWhileLive: Bool {
-        UserDefaults.standard.bool(forKey: selfViewWhileLiveKey)
-    }
-
-    static var pauseSinkWhenIdle: Bool {
-        UserDefaults.standard.bool(forKey: pauseSinkWhenIdleKey)
-    }
-
-    static var liveConversion: LiveConversion {
-        LiveConversion(rawValue: UserDefaults.standard.string(forKey: liveConversionKey) ?? "") ?? .videoToolbox
     }
 
     static func shortcut(forKey key: String) -> KeyboardShortcut? {

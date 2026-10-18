@@ -83,7 +83,7 @@ flowchart LR
 | Language / UI | Swift 6, SwiftUI with AppKit where needed (status item, non-activating panel) | Native; good accessibility support (NFR-13). |
 | Virtual camera | CoreMediaIO **Camera Extension** (`CMIOExtension`) with a source and a sink stream | C1, UR-01/02/03 |
 | Capture | AVFoundation `AVCaptureSession` + `AVCaptureVideoDataOutput` | UR-29/30/31 |
-| Pixel pipeline | IOSurface-backed `CVPixelBuffer`, NV12 (`420v`), `VTPixelTransferSession` for scaling | NFR-06/07/08: zero-copy, hardware scaling |
+| Pixel pipeline | IOSurface-backed `CVPixelBuffer`; the capture output delivers BGRA already scaled to OffSight Camera's format, copied into the sink's buffers | NFR-06/07/08. Not `VTPixelTransferSession` on camera frames: it stops macOS video effects for the whole process (B2) |
 | Launch at login, crash restart | `SMAppService` (macOS 13+) | UR-38, NFR-11 |
 | Extension install | `OSSystemExtensionRequest` (SystemExtensions framework) | UR-37, NFR-18 |
 | Global shortcuts | Carbon `RegisterEventHotKey`, via the MIT-licensed `KeyboardShortcuts` package | UR-17/18. Works in the sandbox and needs no Accessibility permission. |
@@ -287,7 +287,7 @@ This is the **only planned feature difference** between the App Store and Homebr
 
 ## 11. Performance approach (NFR-06…09)
 
-- **Zero-copy:** the same IOSurface travels from capture to sink to source. Scaling, when needed, uses `VTPixelTransferSession` (hardware). There is no CPU-side pixel work on the live path.
+- **Capture does the scaling:** `AVCaptureVideoDataOutput` delivers BGRA frames at OffSight Camera's format; the app copies each into a pool buffer (one memory copy) and tags it for the sink. Accelerate (vImage) converts on the CPU only for frames that arrive in another format, such as the first ones after a format change. OffSight does not run camera frames through `VTPixelTransferSession`: doing so made macOS stop applying the user's video effects (Background, Portrait…) to every frame in the process until it quit (B2).
 - **Capture format:** CameraCapture requests the physical camera format closest to the extension's active format (720p or 1080p at 30 fps) to avoid scaling.
 - **Idle cost:** when no clients are connected, the extension stops its timer. The app is event-driven, with no polling. Target **< 1% CPU** at idle; **< 5%** while live on Apple silicon. These are measured with Instruments in milestone M5.
 - **Placeholder:** rendered once per format per settings change, then reused from the cache. Its per-frame cost is almost nothing.

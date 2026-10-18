@@ -47,7 +47,6 @@ final class AppController: StatusMenuActions {
         }
         return controller
     }()
-    private lazy var selfView = SelfViewPanelController(session: capture.session)
     /// Last effects state noted in the timeline (B2 investigation).
     private var lastEffectsNote = ""
     private let notifier = SessionNotifier()
@@ -256,14 +255,14 @@ final class AppController: StatusMenuActions {
         }
     }
 
-    /// Notes which macOS video effects are active on OffSight's camera whenever that changes, with
-    /// the sink and live-conversion state at the time, to find what stops them reaching live video (B2).
+    /// Notes which macOS video effects are active on OffSight's camera whenever that changes, so
+    /// diagnostics show what applied to live video and when.
     private func noteEffectsChange(live: Bool) {
         guard capture.isRunning else {
             lastEffectsNote = ""
             return
         }
-        let text = "effects: \(capture.activeEffectsDescription) (live \(live), sink \(link.sinkRunning ? "running" : "stopped"), conversion \(feeder.lastConversion))"
+        let text = "effects: \(capture.activeEffectsDescription) (live \(live))"
         guard text != lastEffectsNote else { return }
         lastEffectsNote = text
         note(text)
@@ -303,24 +302,17 @@ final class AppController: StatusMenuActions {
         let cameraAuthorized = CameraCapture.authorizationStatus == .authorized
 
         capture.setRunning(cameraAuthorized && (live || !pending.isEmpty || effectsWindowOpen))
-        selfView.setVisible(cameraAuthorized && live && AppDefaults.selfViewWhileLive)
         noteEffectsChange(live: live)
-        let anyAppUsingCamera = snapshot?.clients.contains(where: \.streaming) ?? false
-        let sinkWanted = !AppDefaults.pauseSinkWhenIdle || anyAppUsingCamera
-        if sinkWanted != link.sinkWanted {
-            link.setSinkWanted(sinkWanted)
-            note("sink \(sinkWanted ? "started" : "paused (experiment: no app uses OffSight Camera)")")
-        }
         if let snapshot {
             // The tag carries the generation this decision was made for; if the client set has
             // changed since, the extension rejects these frames until we catch up (§5.2).
             // While any app uses OffSight Camera and nobody is live, the app sends the placeholder.
             let anyClientStreaming = snapshot.clients.contains(where: \.streaming)
-            let conversion = AppDefaults.liveConversion
             feeder.update(SinkFeeder.Config(sendLive: live, sendPlaceholder: anyClientStreaming && !live,
                                             epoch: snapshot.epoch, generation: snapshot.generation,
-                                            format: snapshot.activeFormat, conversion: conversion))
-            capture.setDeliveredBGRASize(conversion == .captureOutput ? snapshot.activeFormat : nil)
+                                            format: snapshot.activeFormat))
+            // Live frames arrive ready to send: BGRA at OffSight Camera's size (B2, see CameraCapture).
+            capture.setDeliveredBGRASize(snapshot.activeFormat)
             requestCameraFormatIfNeeded()
         } else {
             feeder.update(nil)

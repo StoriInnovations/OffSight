@@ -9,7 +9,7 @@ Status of the work after the M0 working slice, checked against `docs/01-user-req
 | # | Bug | Status |
 |---|---|---|
 | B1 | No prompt when Photo Booth opens with OffSight Camera already selected | **Done**: rule R2 changed (an unanswered session that restarts within grace prompts again). Unit tests; device checks `restart-pending` and `photo-booth`. Verify on device. |
-| B2 | macOS Background effect reaches OffSight's preview but not meeting apps | **Investigating, strong lead.** The effect stays on OffSight's preview until the first live frame is sent; from then on, until OffSight restarts, every frame (preview too) loses it after a brief flash, while macOS still reports it active. Ruled out: on-screen self-view, the bypass monitor's CoreMediaIO query, the sink stream. Suspect: the VideoToolbox pixel transfer (YUV to BGRA plus scaling) applied only to live frames. Experiment: Settings › Advanced › Experiments › "Live video conversion" (VideoToolbox / CPU / camera output at full size), each tried from a fresh start of OffSight. Not building our own effect for now (owner's call). |
+| B2 | macOS Background effect reaches OffSight's preview but not meeting apps | **Done**: the capture output now delivers BGRA at OffSight Camera's size and OffSight only copies it. The cause was the VideoToolbox pixel transfer OffSight ran on live camera frames: from the first live frame until OffSight quit, macOS stopped applying the effects chosen for OffSight to all its frames. Verified on device in Photo Booth and Teams. |
 
 ## Must-haves
 
@@ -52,7 +52,7 @@ Status of the work after the M0 working slice, checked against `docs/01-user-req
 
 ## Next
 
-1. On device: `scripts/test-on-device.sh all`, and the B2 background test.
+1. On device: `scripts/test-on-device.sh all`.
 2. TestFlight build (S1).
 3. Release secrets, tap repository, site live.
 4. Activity history (UR-24) if wanted.

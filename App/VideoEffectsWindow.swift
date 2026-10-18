@@ -1,6 +1,5 @@
 import AppKit
 import AVFoundation
-import CoreImage
 import SwiftUI
 
 /// "Video Effects for Live Video": a local preview of OffSight's own camera capture plus the
@@ -8,31 +7,27 @@ import SwiftUI
 ///
 /// macOS applies video effects (Portrait, Studio Light, Background…) per app, and only while that
 /// app is using a camera; the system panel shows nothing for an app whose camera is off. So this
-/// window keeps OffSight's capture running while it is open. Effects chosen for OffSight are meant
-/// to apply to the physical camera before OffSight passes live video on, in every meeting app,
+/// window keeps OffSight's capture running while it is open. Effects chosen for OffSight then
+/// apply to the physical camera before OffSight passes live video on, in every meeting app,
 /// and never to the placeholder (OffSight Camera itself is too large for effects to apply).
-/// Two previews show whether they do: the system's own preview, and the frames OffSight actually
-/// sends (B2). Nothing from either preview is sent to any app.
+/// Nothing from this preview is sent to any app.
 final class VideoEffectsWindowController: NSObject, NSWindowDelegate {
     /// Called with true when the window opens and false when it closes.
     var onVisibilityChange: ((Bool) -> Void)?
 
     private var window: NSWindow?
     private let model: VideoEffectsModel
-    private let sent: SentFramesModel
     private let session: AVCaptureSession
 
     init(capture: CameraCapture) {
         session = capture.session
         model = VideoEffectsModel(capture: capture)
-        sent = SentFramesModel(capture: capture)
         super.init()
     }
 
     func show() {
         if window == nil {
-            let view = VideoEffectsView(model: model, sent: sent, session: session)
-            let newWindow = NSWindow(contentViewController: NSHostingController(rootView: view))
+            let newWindow = NSWindow(contentViewController: NSHostingController(rootView: VideoEffectsView(model: model, session: session)))
             newWindow.title = "Video Effects for Live Video"
             newWindow.styleMask = [.titled, .closable]
             newWindow.isReleasedWhenClosed = false
@@ -43,14 +38,12 @@ final class VideoEffectsWindowController: NSObject, NSWindowDelegate {
         }
         onVisibilityChange?(true)
         model.start()
-        sent.start()
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
 
     func windowWillClose(_ notification: Notification) {
         model.stop()
-        sent.stop()
         onVisibilityChange?(false)
     }
 }
@@ -116,74 +109,28 @@ final class VideoEffectsModel: ObservableObject {
     }
 }
 
-/// The frames OffSight's capture delivers, which are what meeting apps get when live, shown at
-/// about 10 fps while the window is open. Display only; never sent anywhere.
-final class SentFramesModel: ObservableObject {
-    @Published private(set) var image: CGImage?
-
-    private weak var capture: CameraCapture?
-    private let context = CIContext(options: [.cacheIntermediates: false])
-    private var frameCount = 0
-
-    init(capture: CameraCapture) {
-        self.capture = capture
-    }
-
-    func start() {
-        frameCount = 0
-        capture?.onTapFrame = { [weak self] pixelBuffer in self?.receive(pixelBuffer) }
-    }
-
-    func stop() {
-        capture?.onTapFrame = nil
-        image = nil
-    }
-
-    /// Capture queue.
-    private func receive(_ pixelBuffer: CVPixelBuffer) {
-        frameCount += 1
-        guard frameCount % 3 == 0 else { return }
-        let full = CIImage(cvPixelBuffer: pixelBuffer)
-        let scale = 480 / max(full.extent.width, 1)
-        // Mirrored like the system preview beside it, so the two compare side by side.
-        let small = full.transformed(by: CGAffineTransform(scaleX: -scale, y: scale))
-        guard let rendered = context.createCGImage(small, from: small.extent) else { return }
-        DispatchQueue.main.async { [weak self] in
-            guard self?.capture?.onTapFrame != nil else { return }
-            self?.image = rendered
-        }
-    }
-}
-
 private struct VideoEffectsView: View {
     @ObservedObject var model: VideoEffectsModel
-    @ObservedObject var sent: SentFramesModel
     let session: AVCaptureSession
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 8) {
-                pane(caption: "macOS preview") {
-                    CameraPreview(session: session)
-                        .accessibilityLabel("Camera preview from macOS, visible only to you")
-                }
-                pane(caption: "Sent to meeting apps") {
-                    if let image = sent.image {
-                        Image(decorative: image, scale: 1)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .accessibilityLabel("The video OffSight sends when live, visible only to you")
-                    }
+            ZStack {
+                Color.black
+                CameraPreview(session: session)
+                    .accessibilityLabel("Camera preview, visible only to you")
+                if !model.cameraAuthorised {
+                    Text("OffSight needs camera access. Allow it in System Settings › Privacy & Security › Camera.")
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding()
                 }
             }
-            if !model.cameraAuthorised {
-                Text("OffSight needs camera access. Allow it in System Settings › Privacy & Security › Camera.")
-                    .font(.callout)
-            }
-            Text("Only you see these previews. If an effect shows on the left but not on the right, macOS is not applying it to the video OffSight sends.")
+            .frame(width: 400, height: 225)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            Text("Only you see this preview.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
 
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -211,19 +158,5 @@ private struct VideoEffectsView: View {
         }
         .padding(20)
         .frame(width: 440)
-    }
-
-    private func pane<Content: View>(caption: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ZStack {
-                Color.black
-                content()
-            }
-            .frame(width: 196, height: 110)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            Text(caption)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
     }
 }
