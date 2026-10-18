@@ -47,6 +47,9 @@ final class AppController: StatusMenuActions {
         }
         return controller
     }()
+    private lazy var selfView = SelfViewPanelController(session: capture.session)
+    /// Last effects state noted in the timeline (B2 investigation).
+    private var lastEffectsNote = ""
     private let notifier = SessionNotifier()
     private let settingsModel = SettingsModel()
     /// Settings values last applied, to react only to real changes.
@@ -226,6 +229,24 @@ final class AppController: StatusMenuActions {
                         body: "macOS installed the camera extension but hasn't started it. Restart your Mac; meeting apps keep the placeholder until then.")
     }
 
+    /// Notes which macOS video effects are active on OffSight's camera whenever that changes, with
+    /// what OffSight shows on screen at the time, to find what stops them reaching live video (B2).
+    private func noteEffectsChange(live: Bool) {
+        guard capture.isRunning else {
+            lastEffectsNote = ""
+            return
+        }
+        let onScreen = NSApp.windows.filter { window in
+            window.isVisible && window.occlusionState.contains(.visible)
+                && !String(describing: type(of: window)).contains("StatusBar") // the menu bar icon's own window
+        }.count
+        let text = "effects: \(capture.activeEffectsDescription) (live \(live), OffSight windows on screen \(onScreen))"
+        guard text != lastEffectsNote else { return }
+        lastEffectsNote = text
+        note(text)
+        log.info("\(text, privacy: .public)")
+    }
+
     private func note(_ text: String) {
         timeline.append("\(Self.timeFormatter.string(from: Date())) \(text)")
         if timeline.count > 40 { timeline.removeFirst(timeline.count - 40) }
@@ -259,6 +280,8 @@ final class AppController: StatusMenuActions {
         let cameraAuthorized = CameraCapture.authorizationStatus == .authorized
 
         capture.setRunning(cameraAuthorized && (live || !pending.isEmpty || effectsWindowOpen))
+        selfView.setVisible(cameraAuthorized && live && AppDefaults.selfViewWhileLive)
+        noteEffectsChange(live: live)
         if let snapshot {
             // The tag carries the generation this decision was made for; if the client set has
             // changed since, the extension rejects these frames until we catch up (§5.2).
@@ -431,7 +454,7 @@ final class AppController: StatusMenuActions {
             engine: engine,
             captureDevice: capture.deviceName,
             nativeFormat: capture.nativeFormat,
-            captureMode: capture.activeModeDescription,
+            captureMode: capture.activeModeDescription.map { "\($0); active now: \(capture.activeEffectsDescription)" },
             timeline: timeline,
             feeder: feeder,
             bypass: bypass)

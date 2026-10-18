@@ -119,6 +119,7 @@ private struct GeneralTab: View {
 private struct CameraTab: View {
     @ObservedObject var model: SettingsModel
     @AppStorage(AppDefaults.liveCameraIDKey) private var cameraID = ""
+    @AppStorage(AppDefaults.selfViewWhileLiveKey) private var selfView = false
 
     var body: some View {
         Form {
@@ -140,6 +141,8 @@ private struct CameraTab: View {
             Section {
                 Button("Video Effects for Live Video…", action: model.openVideoEffects)
                 Note("Portrait, Background and other macOS effects chosen here apply to your live video in every meeting app, never to the placeholder.")
+                Toggle("Show a small self-view while live", isOn: $selfView)
+                Note("A preview only you can see, in a corner of the screen, while any app is live. Drag it to move it. Try it if an effect chosen for OffSight doesn't reach your meeting apps: macOS may apply effects only while OffSight shows video on screen.")
             }
         }
         .formStyle(.grouped)

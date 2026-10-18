@@ -9,6 +9,21 @@ import os
 final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// Called on the capture queue for every frame.
     var onFrame: ((CVPixelBuffer) -> Void)?
+    /// A second, optional receiver of every frame (the "Sent to meeting apps" view). Set from any thread.
+    var onTapFrame: ((CVPixelBuffer) -> Void)? {
+        get {
+            tapLock.lock()
+            defer { tapLock.unlock() }
+            return tap
+        }
+        set {
+            tapLock.lock()
+            tap = newValue
+            tapLock.unlock()
+        }
+    }
+    private var tap: ((CVPixelBuffer) -> Void)?
+    private let tapLock = NSLock()
 
     let session = AVCaptureSession()
     private(set) var deviceName: String?
@@ -116,6 +131,17 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         if #available(macOS 15.0, *), format.isBackgroundReplacementSupported { supported.append("Background") }
         let effects = supported.isEmpty ? "no video effects" : supported.joined(separator: ", ")
         return "\(size.width)x\(size.height): \(effects)"
+    }
+
+    /// The effects macOS reports active on the camera right now, e.g. "Background, Portrait", or "none".
+    var activeEffectsDescription: String {
+        guard let device else { return "no camera" }
+        var active: [String] = []
+        if #available(macOS 15.0, *), device.isBackgroundReplacementActive { active.append("Background") }
+        if device.isPortraitEffectActive { active.append("Portrait") }
+        if device.isStudioLightActive { active.append("Studio Light") }
+        if device.isCenterStageActive { active.append("Center Stage") }
+        return active.isEmpty ? "none" : active.joined(separator: ", ")
     }
 
     /// Physical cameras the user can choose as the live source (UR-31).
@@ -237,5 +263,6 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         onFrame?(pixelBuffer)
+        onTapFrame?(pixelBuffer)
     }
 }

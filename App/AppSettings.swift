@@ -15,6 +15,8 @@ enum AppDefaults {
     // Camera
     /// `AVCaptureDevice.uniqueID` of the live camera; empty means automatic (built-in first).
     static let liveCameraIDKey = "liveCameraUniqueID"
+    /// Show a small self-view while any app is live.
+    static let selfViewWhileLiveKey = "selfViewWhileLive"
 
     // Approvals
     static let promptExpiryKey = "promptExpirySeconds"
@@ -29,6 +31,7 @@ enum AppDefaults {
             useColouredStatusIconKey: false,
             notificationsEnabledKey: true,
             liveCameraIDKey: "",
+            selfViewWhileLiveKey: false,
             promptExpiryKey: PolicySettings.defaultPromptExpiry,
             gracePeriodKey: PolicySettings.defaultGracePeriod,
             panicShortcutKey: KeyboardShortcut.defaultPanic.storageString,
@@ -49,6 +52,10 @@ enum AppDefaults {
     static var liveCameraID: String? {
         let id = UserDefaults.standard.string(forKey: liveCameraIDKey) ?? ""
         return id.isEmpty ? nil : id
+    }
+
+    static var selfViewWhileLive: Bool {
+        UserDefaults.standard.bool(forKey: selfViewWhileLiveKey)
     }
 
     static func shortcut(forKey key: String) -> KeyboardShortcut? {
