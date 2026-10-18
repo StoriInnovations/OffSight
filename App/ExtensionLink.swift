@@ -30,6 +30,11 @@ final class ExtensionLink {
 
     private let sinkLock = NSLock()
     private var sinkQueue: CMSimpleQueue?
+    /// Whether the sink stream should run. Normally always; an experiment (B2) pauses it while no
+    /// app uses OffSight Camera, so OffSight's process uses only the physical camera then.
+    private(set) var sinkWanted = true
+    /// True between a successful start and the next stop.
+    private(set) var sinkRunning = false
 
     var isConnected: Bool { deviceID != nil }
 
@@ -114,7 +119,7 @@ final class ExtensionLink {
                 snapshotListener = (source, block)
             }
         }
-        startSink()
+        if sinkWanted { startSink() }
         readSnapshot()
     }
 
@@ -150,13 +155,25 @@ final class ExtensionLink {
 
     /// Every 5 s, restart the sink if it failed to start or the extension does not see it connected.
     private func retrySinkIfNeeded() {
-        guard pollCount % 20 == 0 else { return }
+        guard sinkWanted, pollCount % 20 == 0 else { return }
         let failed = sinkStartStatus.map { $0 != noErr } ?? true
         let notConnected = latestSnapshot.map { !$0.sinkConnected } ?? false
         guard failed || notConnected else { return }
         log.info("Retrying sink start (status \(self.sinkStartStatus ?? 0), connected \(!notConnected))")
         stopSink()
         startSink()
+    }
+
+    /// Starts or stops the sink stream (main thread).
+    func setSinkWanted(_ wanted: Bool) {
+        guard wanted != sinkWanted else { return }
+        sinkWanted = wanted
+        log.info("Sink \(wanted ? "wanted" : "paused", privacy: .public)")
+        if wanted {
+            if deviceID != nil { startSink() }
+        } else {
+            stopSink()
+        }
     }
 
     private func startSink() {
@@ -174,6 +191,7 @@ final class ExtensionLink {
         sinkLock.unlock()
         let startStatus = CMIODeviceStartStream(deviceID, sinkStreamID)
         sinkStartStatus = startStatus
+        sinkRunning = startStatus == noErr
         if startStatus != noErr {
             log.error("CMIODeviceStartStream(sink) failed: \(startStatus)")
         }
@@ -183,6 +201,7 @@ final class ExtensionLink {
         if let deviceID, let sinkStreamID {
             CMIODeviceStopStream(deviceID, sinkStreamID)
         }
+        sinkRunning = false
         sinkLock.lock()
         sinkQueue = nil
         sinkLock.unlock()

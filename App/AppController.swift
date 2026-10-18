@@ -267,7 +267,7 @@ final class AppController: StatusMenuActions {
             window.isVisible && window.occlusionState.contains(.visible)
                 && !String(describing: type(of: window)).contains("StatusBar") // the menu bar icon's own window
         }.count
-        let text = "effects: \(capture.activeEffectsDescription) (live \(live), OffSight windows on screen \(onScreen))"
+        let text = "effects: \(capture.activeEffectsDescription) (live \(live), OffSight windows on screen \(onScreen), sink \(link.sinkRunning ? "running" : "stopped"))"
         guard text != lastEffectsNote else { return }
         lastEffectsNote = text
         note(text)
@@ -309,6 +309,12 @@ final class AppController: StatusMenuActions {
         capture.setRunning(cameraAuthorized && (live || !pending.isEmpty || effectsWindowOpen))
         selfView.setVisible(cameraAuthorized && live && AppDefaults.selfViewWhileLive)
         noteEffectsChange(live: live)
+        let anyAppUsingCamera = snapshot?.clients.contains(where: \.streaming) ?? false
+        let sinkWanted = !AppDefaults.pauseSinkWhenIdle || anyAppUsingCamera
+        if sinkWanted != link.sinkWanted {
+            link.setSinkWanted(sinkWanted)
+            note("sink \(sinkWanted ? "started" : "paused (experiment: no app uses OffSight Camera)")")
+        }
         if let snapshot {
             // The tag carries the generation this decision was made for; if the client set has
             // changed since, the extension rejects these frames until we catch up (§5.2).

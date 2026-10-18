@@ -18,6 +18,10 @@ enum AppDefaults {
     /// Show a small self-view while any app is live.
     static let selfViewWhileLiveKey = "selfViewWhileLive"
 
+    // Advanced
+    /// Experiment (B2): stop the sink stream while no app uses OffSight Camera.
+    static let pauseSinkWhenIdleKey = "experimentPauseSinkWhenIdle"
+
     // Approvals
     static let promptExpiryKey = "promptExpirySeconds"
     static let gracePeriodKey = "gracePeriodSeconds"
@@ -32,6 +36,7 @@ enum AppDefaults {
             notificationsEnabledKey: true,
             liveCameraIDKey: "",
             selfViewWhileLiveKey: false,
+            pauseSinkWhenIdleKey: false,
             promptExpiryKey: PolicySettings.defaultPromptExpiry,
             gracePeriodKey: PolicySettings.defaultGracePeriod,
             panicShortcutKey: KeyboardShortcut.defaultPanic.storageString,
@@ -56,6 +61,10 @@ enum AppDefaults {
 
     static var selfViewWhileLive: Bool {
         UserDefaults.standard.bool(forKey: selfViewWhileLiveKey)
+    }
+
+    static var pauseSinkWhenIdle: Bool {
+        UserDefaults.standard.bool(forKey: pauseSinkWhenIdleKey)
     }
 
     static func shortcut(forKey key: String) -> KeyboardShortcut? {

@@ -30,7 +30,7 @@ enum Diagnostics {
             lines.append("  - \(device.localizedName) uid=\(device.uniqueID) physical=\(BypassMonitor.isPhysical(device)) inUseByAnotherApp=\(device.isInUseByAnotherApplication)")
         }
         lines.append("Device found: \(link.deviceID.map { String($0) } ?? "no"); source stream \(link.sourceStreamID.map { String($0) } ?? "-"); sink stream \(link.sinkStreamID.map { String($0) } ?? "-")")
-        lines.append("Sink start status: \(link.sinkStartStatus.map { String($0) } ?? "not attempted") after \(link.sinkStartAttempts) attempt(s)")
+        lines.append("Sink start status: \(link.sinkStartStatus.map { String($0) } ?? "not attempted") after \(link.sinkStartAttempts) attempt(s); running \(link.sinkRunning), wanted \(link.sinkWanted)")
         lines.append("Snapshot listener callbacks: \(link.listenerCallbacks); device binds: \(link.rebinds)")
         lines.append("Capture device: \(captureDevice ?? "not configured"); native format \(nativeFormat?.description ?? "unknown"); OffSight Camera format wanted \(nativeFormat.map { OffSightConstants.effectsFreeFormat(for: $0).description } ?? "unknown")")
         lines.append("Capture mode: \(captureMode ?? "not configured")")

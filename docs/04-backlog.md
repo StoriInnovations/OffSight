@@ -9,7 +9,7 @@ Status of the work after the M0 working slice, checked against `docs/01-user-req
 | # | Bug | Status |
 |---|---|---|
 | B1 | No prompt when Photo Booth opens with OffSight Camera already selected | **Done**: rule R2 changed (an unanswered session that restarts within grace prompts again). Unit tests; device checks `restart-pending` and `photo-booth`. Verify on device. |
-| B2 | macOS Background effect reaches OffSight's preview but not meeting apps | **Investigating.** On device the effect appears when capture starts and drops about a second later, in both the macOS preview and the frames sent, even with the Video Effects window open, so the visible-window idea is less likely. Suspect: the bypass monitor's once-a-second CoreMediaIO query of the physical camera; now skipped while OffSight's own capture runs (its result was ignored then anyway). Still available for comparison: Settings › Camera › "Show a small self-view while live". Not building our own effect for now (owner's call). |
+| B2 | macOS Background effect reaches OffSight's preview but not meeting apps | **Investigating.** On device the effect appears when capture starts and drops about a second later, in both the macOS preview and the frames sent, while macOS keeps reporting it active. Not fixed by an on-screen self-view or by stopping the bypass monitor's CoreMediaIO query. Current suspect: OffSight's process always runs a second camera stream (the sink into OffSight Camera); test with Settings › Advanced › Experiments › "Pause the video link…" and the Video Effects window with no meeting app open. If confirmed, the fix is to capture in a separate helper process. Not building our own effect for now (owner's call). |
 
 ## Must-haves
 

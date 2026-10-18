@@ -267,6 +267,7 @@ private struct ShortcutRecorder: View {
 
 private struct AdvancedTab: View {
     @ObservedObject var model: SettingsModel
+    @AppStorage(AppDefaults.pauseSinkWhenIdleKey) private var pauseSink = false
 
     var body: some View {
         Form {
@@ -283,6 +284,10 @@ private struct AdvancedTab: View {
             Section {
                 Button("Camera Privacy Settings…", action: model.openCameraPrivacySettings)
                 Note("OffSight needs camera access for the prompt preview and for live video.")
+            }
+            Section("Experiments") {
+                Toggle("Pause the video link to OffSight Camera while no app uses it", isOn: $pauseSink)
+                Note("For testing macOS video effects. While no meeting app uses OffSight Camera, OffSight then uses only your real camera, for example in the Video Effects window. Meeting apps are unaffected: they see the placeholder either way.")
             }
             Section {
                 Button("Copy Diagnostics", action: model.copyDiagnostics)
