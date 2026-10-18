@@ -89,7 +89,10 @@ final class BypassMonitor: NSObject {
         var signals: [CameraSignal] = []
         for device in discovery.devices where Self.isPhysical(device) {
             let avInUse = device.isInUseByAnotherApplication
-            let running = CMIO.device(withUID: device.uniqueID).flatMap(CMIO.isRunningSomewhere)
+            // While OffSight's own capture runs, the camera runs anyway and this signal is ignored
+            // below, so don't query it: querying the physical camera through CoreMediaIO every
+            // second coincided with macOS dropping the video effects chosen for OffSight (B2).
+            let running = ownRunning ? nil : CMIO.device(withUID: device.uniqueID).flatMap(CMIO.isRunningSomewhere)
             let counted = avInUse || (!ownRunning && running == true)
             signals.append(CameraSignal(name: device.localizedName, uniqueID: device.uniqueID,
                                         avInUseByAnotherApp: avInUse, cmioRunningSomewhere: running, counted: counted))
