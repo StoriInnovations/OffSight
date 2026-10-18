@@ -59,15 +59,37 @@ done
 if [[ "$launched" == no ]]; then
   echo "Could not launch OffSight automatically. Open it from Applications." >&2
 fi
-if [[ "$EXTENSION_CHANGED" == yes ]]; then
-  echo
-  echo "The camera extension changed, so macOS will replace it. If OffSight Camera does not"
-  echo "appear within ~15 seconds (the OffSight menu says so too), restart the Mac once."
-fi
-
-# What macOS has installed. "[activated enabled]" with this build number is the one that runs;
-# an older build marked "terminated waiting to uninstall on reboot" goes away at the next restart.
-# OffSight › About shows the build actually running.
+# OffSight asks macOS to install its camera extension when it launches. Wait for macOS to list
+# this build, then say what it needs. "[activated enabled]" with this build is the one that runs
+# (perhaps only after a restart); an older build "waiting to uninstall on reboot" goes at the next
+# restart. OffSight › About shows the build actually running.
 echo
-echo "Camera extension builds known to macOS (this app carries build $EXTENSION_BUILD):"
-systemextensionsctl list 2>/dev/null | grep -i "offsight" || echo "  none listed yet"
+echo "Waiting for macOS to pick up camera extension build $EXTENSION_BUILD…"
+LIST=""
+for _ in $(seq 1 30); do
+  LIST=$(systemextensionsctl list 2>/dev/null | grep -i "offsight" || true)
+  if grep -q "/$EXTENSION_BUILD)" <<<"$LIST"; then break; fi
+  sleep 1
+done
+echo "Camera extension builds known to macOS:"
+echo "${LIST:-  none}"
+MINE=$(grep "/$EXTENSION_BUILD)" <<<"$LIST" || true)
+echo
+if [[ -z "$MINE" ]]; then
+  echo "macOS hasn't installed build $EXTENSION_BUILD. Open OffSight › Settings › Advanced (or About) for"
+  echo "the reason; Copy Diagnostics includes the install error."
+elif grep -q "waiting for user" <<<"$MINE"; then
+  echo "Allow it: System Settings › General › Login Items & Extensions › Camera Extensions › OffSight."
+elif grep -q "activated enabled" <<<"$MINE" && grep -q "waiting to uninstall\|terminated" <<<"$LIST"; then
+  echo "Build $EXTENSION_BUILD is installed. Restart the Mac to start it (macOS stops the old one but"
+  echo "often won't start a replaced camera extension until then)."
+elif grep -q "activated enabled" <<<"$MINE"; then
+  if [[ "$EXTENSION_CHANGED" == yes ]]; then
+    echo "Build $EXTENSION_BUILD is installed. If OffSight › About doesn't say \"up to date\" within ~15 s,"
+    echo "restart the Mac once."
+  else
+    echo "Camera extension unchanged (build $EXTENSION_BUILD); no restart needed."
+  fi
+else
+  echo "Build $EXTENSION_BUILD: $MINE"
+fi

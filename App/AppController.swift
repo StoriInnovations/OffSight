@@ -233,10 +233,19 @@ final class AppController: StatusMenuActions {
     /// Which camera extension build macOS is running, against the one this app carries.
     private var extensionVersionStatus: ExtensionVersionStatus {
         ExtensionVersionStatus.evaluate(connected: link.isConnected, running: link.latestSnapshot?.extensionVersion,
-                                        bundled: installer.bundledVersion)
+                                        bundled: installer.bundledVersion, installed: installer.installedExtensions,
+                                        installError: installer.installError)
     }
 
+    private var lastPropertiesQuery = Date.distantPast
+
     private func updateExtensionVersion() {
+        // While the extension isn't running, keep asking macOS what it has, so the status follows
+        // an install, an approval in System Settings or a pending replacement.
+        if !link.isConnected, Date().timeIntervalSince(lastPropertiesQuery) > 10 {
+            lastPropertiesQuery = Date()
+            installer.refreshInstalledProperties()
+        }
         let status = extensionVersionStatus
         let line = status.summary(bundled: installer.bundledVersion)
         if aboutModel.extensionLine != line {

@@ -18,6 +18,31 @@ final class BuildVersionTests: XCTestCase {
         XCTAssertNil(BuildVersion(short: "1.0", build: "1.2.3").buildDate)
     }
 
+    private func installed(_ build: String, enabled: Bool = true, awaiting: Bool = false,
+                           uninstalling: Bool = false) -> InstalledExtension {
+        InstalledExtension(version: BuildVersion(short: "0.1.0", build: build), enabled: enabled,
+                           awaitingApproval: awaiting, uninstalling: uninstalling)
+    }
+
+    func testNotRunningExplainsWhatMacOSHas() {
+        func status(_ list: [InstalledExtension]?, error: String? = nil) -> ExtensionVersionStatus {
+            .evaluate(connected: false, running: nil, bundled: bundled, installed: list, installError: error)
+        }
+        XCTAssertEqual(status(nil), .notRunning)
+        XCTAssertEqual(status(nil, error: "denied"), .notInstalled(installedBuilds: [], error: "denied"))
+        XCTAssertEqual(status([installed("1760000000")]), .installedNotStarted)
+        XCTAssertEqual(status([installed("1750000000", uninstalling: true), installed("1760000000")]), .installedNotStarted)
+        XCTAssertEqual(status([installed("1760000000", enabled: false, awaiting: true)]), .awaitingApproval)
+        XCTAssertEqual(status([installed("1750000000")]), .notInstalled(installedBuilds: ["1750000000"], error: nil))
+        XCTAssertEqual(status([installed("1760000000", uninstalling: true)]), .notInstalled(installedBuilds: [], error: nil))
+        XCTAssertEqual(status([]), .notInstalled(installedBuilds: [], error: nil))
+
+        XCTAssertTrue(ExtensionVersionStatus.installedNotStarted.summary(bundled: bundled).hasPrefix("Build 1760000000 is installed"))
+        let pending = ExtensionVersionStatus.notInstalled(installedBuilds: ["1750000000"], error: nil).summary(bundled: bundled)
+        XCTAssertTrue(pending.contains("macOS has build 1750000000") && pending.contains("asking macOS to install"))
+        XCTAssertTrue(ExtensionVersionStatus.notInstalled(installedBuilds: [], error: "denied").summary(bundled: bundled).hasSuffix("failed: denied"))
+    }
+
     func testStatus() {
         XCTAssertEqual(ExtensionVersionStatus.evaluate(connected: false, running: bundled, bundled: bundled), .notRunning)
         XCTAssertEqual(ExtensionVersionStatus.evaluate(connected: true, running: bundled, bundled: bundled), .current)

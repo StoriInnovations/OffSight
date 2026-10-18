@@ -49,6 +49,14 @@ final class ExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
 
     /// What macOS reports about the installed extension (diagnostics).
     private(set) var installedDescription = "not queried"
+    /// The extension builds macOS knows about; nil until it has answered.
+    private(set) var installedExtensions: [InstalledExtension]?
+
+    /// The last install request's error, while the state is failed.
+    var installError: String? {
+        if case .failed(let message) = state { return message }
+        return nil
+    }
 
     func activate() {
         state = .activating
@@ -115,12 +123,20 @@ final class ExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
     }
 
     func request(_ request: OSSystemExtensionRequest, foundProperties properties: [OSSystemExtensionProperties]) {
+        let previousDescription = installedDescription
         requestKinds.removeValue(forKey: ObjectIdentifier(request))
+        installedExtensions = properties.map { p in
+            InstalledExtension(version: BuildVersion(short: p.bundleShortVersion, build: p.bundleVersion),
+                               enabled: p.isEnabled, awaitingApproval: p.isAwaitingUserApproval,
+                               uninstalling: p.isUninstalling)
+        }
         installedDescription = properties.isEmpty ? "none installed" : properties.map { p in
             "v\(p.bundleShortVersion) (\(p.bundleVersion)) enabled=\(p.isEnabled) awaitingApproval=\(p.isAwaitingUserApproval) uninstalling=\(p.isUninstalling)"
         }.joined(separator: "; ")
-        log.info("Installed extension: \(self.installedDescription, privacy: .public)")
-        onChange?()
+        if installedDescription != previousDescription {
+            log.info("Installed extension: \(self.installedDescription, privacy: .public)")
+            onChange?()
+        }
     }
 
     func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
