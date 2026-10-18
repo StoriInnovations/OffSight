@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Registered with SMAppService.agent when the user turns on "Launch at login" (UR-38).
+	     Starts OffSight at login and restarts it if it quits unexpectedly (NFR-11);
+	     quitting from the menu exits cleanly, so it stays quit. -->
+	<key>Label</key>
+	<string>com.storiinnovations.offsight.agent</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/OffSight</string>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>com.storiinnovations.offsight</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>5</integer>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+</dict>
+</plist>

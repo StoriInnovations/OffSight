@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — OffSight</title>
+<meta name="description" content="OffSight collects no data. Camera video stays on your Mac and is never recorded or sent anywhere by OffSight.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a href="index.html" aria-label="OffSight home">
+      <picture>
+        <source srcset="help/images/lockup-horizontal-on-dark.svg" media="(prefers-color-scheme: dark)">
+        <img src="help/images/lockup-horizontal-on-light.svg" alt="OffSight">
+      </picture>
+    </a>
+    <nav aria-label="Site">
+        <a href="index.html">Home</a>
+        <a href="help/index.html">Help</a>
+        <a href="privacy.html" aria-current="page">Privacy</a>
+        <a href="support.html">Support</a>
+        <a href="https://github.com/astatine-/offsight">Source</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <div class="wrap">
+    <h1>Privacy Policy</h1>
+    <p class="meta">Applies to the OffSight app for macOS, including the OffSight Camera extension. Last updated 12 October 2026.</p>
+
+    <p class="callout"><strong>In short:</strong> OffSight collects no data. It has no account, no analytics, no advertising and no network access. Your camera video stays on your Mac.</p>
+
+    <h2>What OffSight does with your camera</h2>
+    <ul>
+      <li>OffSight uses your camera only to show <strong>you</strong> a private preview when an app asks to use the camera, and to pass live video to a meeting app <strong>after you approve it</strong> for that call.</li>
+      <li>Until you approve, meeting apps receive a placeholder picture instead of your video.</li>
+      <li>OffSight does not record, store, analyse or upload video or images from your camera.</li>
+      <li>Video you approve goes to the meeting app you chose. What that app does with it is governed by that app’s own privacy policy.</li>
+    </ul>
+
+    <h2>Data we collect</h2>
+    <p>None. OffSight does not collect, transmit, sell or share any personal data or usage data. The app is not able to: it is built without network access, and it contains no analytics, crash-reporting or advertising code.</p>
+
+    <h2>What stays on your Mac</h2>
+    <p>To work, OffSight keeps a few things locally, in its own sandboxed storage on your Mac. None of it is sent anywhere.</p>
+    <ul>
+      <li><strong>Your settings</strong>, such as prompt timing, shortcuts and your chosen camera.</li>
+      <li><strong>Your own placeholder image</strong>, if you choose one: OffSight keeps a copy so it keeps working if you move the original. Choosing <em>Use Default</em> deletes the copy.</li>
+      <li><strong>The names of apps currently using the camera</strong>, held in memory only while they use it, to show them in the menu and ask you about them.</li>
+    </ul>
+    <p>OffSight writes technical events (for example “camera extension connected”) to the macOS system log, like most Mac apps. These stay on your Mac, contain no images, and are managed by macOS.</p>
+
+    <h2>Diagnostics</h2>
+    <p><em>Copy Diagnostics</em> (Settings › Advanced) puts a plain-text report on your clipboard only when you click it. It contains technical state and the names of apps using the camera, and no images. Nothing is sent: it is up to you whether to paste it anywhere.</p>
+
+    <h2>Permissions OffSight asks for</h2>
+    <ul>
+      <li><strong>Camera:</strong> for the private preview and for live video you approve.</li>
+      <li><strong>Camera extension:</strong> macOS asks you to allow OffSight Camera, the camera meeting apps use.</li>
+      <li><strong>Notifications</strong> (optional): to tell you when an app goes live and when its session ends.</li>
+      <li><strong>Files you choose</strong> (optional): read once, when you pick your own placeholder image.</li>
+    </ul>
+
+    <h2>Apple and the App Store</h2>
+    <p>If you install OffSight from the Mac App Store, Apple handles the download and any purchase under Apple’s own privacy policy. If you opt in to sharing analytics with app developers in macOS, Apple may provide aggregated, anonymous statistics such as install counts. OffSight itself sends nothing.</p>
+
+    <h2>Children</h2>
+    <p>OffSight collects no data from anyone, including children.</p>
+
+    <h2>Changes</h2>
+    <p>If this policy changes, the new version will be published on this page with a new date. The history of this page is public in the <a href="https://github.com/astatine-/offsight/commits/main/site/privacy.html">project’s source repository</a>.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about this policy: open an issue on <a href="https://github.com/astatine-/offsight/issues">GitHub</a>. See <a href="support.html">Support</a> for what to expect.</p>
+  </div>
+</main>
+<footer class="site">
+  <div class="wrap">
+    OffSight is open-source software under the <a href="https://github.com/astatine-/offsight/blob/main/LICENSE">MIT License</a>, provided “as is”, without warranty of any kind.
+  </div>
+</footer>
+</body>
+</html>

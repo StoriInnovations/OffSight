@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OffSight Help</title>
+<meta name="description" content="Set up OffSight, choose OffSight Camera in your meeting apps, and use the camera shutter day to day.">
+<!--
+  OffSight Help: one self-contained page, bundled in the app (Contents/Resources/Help) and opened
+  in the default browser from the menu item "OffSight Help". Images live in images/; CI fails if
+  the page references an image that isn't bundled. To add a screenshot later:
+
+    <figure>
+      <img src="images/prompt.png" alt="The OffSight prompt asking whether Zoom may use the camera" width="420">
+      <figcaption>The prompt that appears when an app turns on the camera.</figcaption>
+    </figure>
+
+  Provide @2x PNGs and set width to half the pixel width. Section ids are stable: the app may
+  link to this page at #setup, #apps, #daily, #settings, #troubleshooting, #privacy or #remove.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --surface: #f5f6f8;
+    --border: #dfe2e7;
+    --text: #1c2129;
+    --muted: #5b6573;
+    --accent: #2f8580;
+    --live: #e5352b;
+    --warning: #d97a00;
+    --glyph-filter: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #191d24;
+      --surface: #212731;
+      --border: #333b47;
+      --text: #eceef1;
+      --muted: #a3acb8;
+      --accent: #6fc7c2;
+      --live: #ff5a4f;
+      --warning: #ffb23f;
+      --glyph-filter: invert(1);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #191d24;
+    --surface: #212731;
+    --border: #333b47;
+    --text: #eceef1;
+    --muted: #a3acb8;
+    --accent: #6fc7c2;
+    --live: #ff5a4f;
+    --warning: #ffb23f;
+    --glyph-filter: invert(1);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout { display: flex; max-width: 1080px; margin: 0 auto; }
+  nav.toc {
+    position: sticky; top: 0; align-self: flex-start;
+    width: 220px; flex: none; height: 100vh; overflow-y: auto;
+    padding: 28px 16px 28px 24px; border-right: 1px solid var(--border);
+    font-size: 13.5px;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  nav.toc li { margin: 2px 0; }
+  nav.toc a { display: block; padding: 4px 8px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+  nav.toc a:hover { background: var(--surface); color: var(--text); }
+  nav.toc a.active { color: var(--accent); font-weight: 600; }
+  main { flex: 1; min-width: 0; padding: 28px 40px 80px; }
+
+  header.hero { padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  header.hero picture img { height: 40px; width: auto; display: block; }
+  header.hero p.lead { font-size: 17px; color: var(--text); margin: 16px 0; max-width: 62ch; }
+
+  h2 { font-size: 22px; margin: 44px 0 8px; padding-top: 4px; }
+  h3 { font-size: 16.5px; margin: 28px 0 6px; }
+  p, li { max-width: 70ch; }
+  a { color: var(--accent); }
+  strong { font-weight: 600; }
+  .menu { font-weight: 600; white-space: nowrap; }
+  kbd {
+    font: 600 12.5px -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 5px; background: var(--surface); white-space: nowrap;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 8px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+  td:first-child { white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+
+  img.glyph { width: 22px; height: 22px; vertical-align: -5px; margin-right: 8px; filter: var(--glyph-filter); }
+
+  .callout {
+    background: var(--surface); border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 14px 0; max-width: 72ch;
+  }
+  .callout.warn { border-left-color: var(--warning); }
+
+  figure { margin: 16px 0; }
+  figure img { max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); display: block; }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+  dl.faq dt { font-weight: 600; margin-top: 18px; }
+  dl.faq dd { margin: 4px 0 0; max-width: 70ch; }
+
+  ol.steps > li { margin: 6px 0; }
+  .button-link {
+    display: inline-block; margin: 2px 0; padding: 3px 10px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface); text-decoration: none; font-size: 13.5px;
+  }
+
+  @media (max-width: 760px) {
+    .layout { display: block; }
+    nav.toc { position: static; width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 16px; }
+    nav.toc ol { display: flex; flex-wrap: wrap; gap: 4px; }
+    main { padding: 20px 16px 60px; }
+    td:first-child { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <ol>
+      <li><a href="#how">How OffSight works</a></li>
+      <li><a href="#setup">Set up OffSight</a></li>
+      <li><a href="#apps">Set up your meeting apps</a></li>
+      <li><a href="#daily">Use OffSight day to day</a></li>
+      <li><a href="#settings">Settings</a></li>
+      <li><a href="#troubleshooting">Troubleshooting</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+      <li><a href="#remove">Remove OffSight</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <picture>
+        <source srcset="images/lockup-horizontal-on-dark.svg" media="(prefers-color-scheme: dark)">
+        <img src="images/lockup-horizontal-on-light.svg" alt="OffSight">
+      </picture>
+      <p class="lead">OffSight works like a physical camera shutter, in software. Meeting apps see a “Camera off” picture until you say <strong>Go live</strong>, for that app, for that call. When the call ends, the shutter closes again on its own.</p>
+    </header>
+
+    <!-- ───────────────────────────── 1 ───────────────────────────── -->
+    <section id="how">
+      <h2>How OffSight works</h2>
+      <p>OffSight adds a camera to your Mac called <strong>OffSight Camera</strong>. You choose it as the camera in each meeting app, once.</p>
+      <ul>
+        <li>When a meeting app turns on OffSight Camera, it gets the <strong>placeholder</strong> (below), never your face.</li>
+        <li>OffSight asks you, in a small window, whether that app may see you. Only <strong>you</strong> see the preview in that window.</li>
+        <li>If you click <strong>Go live for this session</strong>, OffSight passes your real camera through to that app until it stops using the camera.</li>
+        <li>Next time, it asks again. There is no “always allow”.</li>
+      </ul>
+      <figure>
+        <img src="images/placeholder-camera-off.jpg" alt="The OffSight placeholder: a closed iris with the words Camera off, Protected by OffSight" width="480">
+        <figcaption>What other people see until you go live. You can use your own picture instead (<a href="#settings-camera">Settings › Camera</a>).</figcaption>
+      </figure>
+      <p class="callout">If you ignore the question, or something goes wrong, the app keeps getting the placeholder. OffSight always fails safe.</p>
+    </section>
+
+    <!-- ───────────────────────────── 2 ───────────────────────────── -->
+    <section id="setup">
+      <h2>Set up OffSight</h2>
+      <h3>What you need</h3>
+      <ul>
+        <li>macOS 13 Ventura or later.</li>
+        <li>OffSight in your <strong>Applications</strong> folder. The camera only works from there.</li>
+      </ul>
+
+      <h3 id="setup-open">Step 1: Open OffSight</h3>
+      <p>Open OffSight from Applications. It has no Dock icon. Look for the <img class="glyph" src="images/menubar-idle.svg" alt="">iris icon in the menu bar, at the top right of the screen.</p>
+
+      <h3 id="setup-extension">Step 2: Allow the OffSight camera extension</h3>
+      <p>macOS asks you to approve the camera that OffSight adds.</p>
+      <ul>
+        <li><strong>macOS 15 Sequoia or later:</strong> open <span class="menu">System Settings › General › Login Items &amp; Extensions</span>, find <strong>Camera Extensions</strong>, and turn on <strong>OffSight</strong>.<br>
+          <a class="button-link" href="x-apple.systempreferences:com.apple.LoginItems-Settings.extension">Open Login Items &amp; Extensions</a></li>
+        <li><strong>macOS 13 Ventura or 14 Sonoma:</strong> open <span class="menu">System Settings › Privacy &amp; Security</span>, scroll down, and click <strong>Allow</strong> next to the message about OffSight.<br>
+          <a class="button-link" href="x-apple.systempreferences:com.apple.preference.security?General">Open Privacy &amp; Security</a></li>
+      </ul>
+      <p>The OffSight menu shows <strong>Camera extension: Connected</strong> when this is done. If it says something else, see <a href="#troubleshooting">Troubleshooting</a>.</p>
+
+      <h3 id="setup-camera">Step 3: Allow camera access</h3>
+      <p>The first time OffSight needs your camera, macOS asks for permission. Click <strong>Allow</strong>. OffSight uses the camera only for the preview in its prompt and for live video that you approve.</p>
+      <p>If you clicked <strong>Don’t Allow</strong>, turn on OffSight under <span class="menu">Privacy &amp; Security › Camera</span>.<br>
+        <a class="button-link" href="x-apple.systempreferences:com.apple.preference.security?Privacy_Camera">Open Camera privacy settings</a></p>
+
+      <h3 id="setup-login">Step 4: Check “Launch at login”</h3>
+      <p>OffSight turns this on the first time it runs, so protection starts whenever you log in. You can check it in <span class="menu">OffSight › Settings › General</span>.</p>
+      <p class="callout">If OffSight isn’t running, meeting apps still get the placeholder, but you can’t go live until you open OffSight again.</p>
+    </section>
+
+    <!-- ───────────────────────────── 3 ───────────────────────────── -->
+    <section id="apps">
+      <h2>Set up your meeting apps</h2>
+      <p>In each meeting app, choose <strong>OffSight Camera</strong> as the camera. You only do this once per app. The app remembers it.</p>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>App</th><th>Where to choose the camera</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Zoom</strong></td><td><span class="menu">zoom.us › Settings › Video › Camera</span></td></tr>
+          <tr><td><strong>Microsoft Teams</strong></td><td><span class="menu">··· (Settings and more) › Settings › Devices › Camera</span></td></tr>
+          <tr><td><strong>Google Meet</strong><br>Chrome, Safari, Edge, Arc, Firefox</td><td>Before you join: the camera menu under your preview. In a call: <span class="menu">⋮ More options › Settings › Video › Camera</span>.</td></tr>
+          <tr><td><strong>Webex</strong></td><td><span class="menu">Webex › Settings › Video › Camera</span></td></tr>
+          <tr><td><strong>Slack huddles</strong></td><td><span class="menu">Slack › Settings › Audio &amp; video › Camera</span></td></tr>
+          <tr><td><strong>FaceTime</strong></td><td><span class="menu">Video</span> menu, then <strong>OffSight Camera</strong></td></tr>
+          <tr><td><strong>Photo Booth</strong></td><td><span class="menu">Camera</span> menu, then <strong>OffSight Camera</strong></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>Menu names can change between app versions. If you can’t find them, look for <strong>Video</strong> or <strong>Devices</strong> in the app’s settings.</p>
+
+      <h3 id="apps-browsers">Browsers</h3>
+      <p>A browser must be allowed to use the camera before any website can use it:</p>
+      <ul>
+        <li>In <span class="menu">System Settings › Privacy &amp; Security › Camera</span>, turn on your browser.</li>
+        <li>When a meeting site asks for the camera, click <strong>Allow</strong>, then choose <strong>OffSight Camera</strong> in the site’s settings.</li>
+      </ul>
+      <p>OffSight treats a browser as one app. One approval covers all of that browser’s tabs until the browser stops using the camera.</p>
+      <p>In the version of OffSight from Homebrew, the prompt and menu also show the meeting website, for example <em>Google Chrome — meet.google.com</em>. macOS asks once per browser whether OffSight may read its front tab; OffSight reads only the site name. If you decline, or the browser can’t tell (Firefox), OffSight shows the browser name alone. The App Store version always shows the browser name alone.</p>
+
+      <h3 id="apps-check">Check it works</h3>
+      <ol class="steps">
+        <li>Open <strong>Photo Booth</strong> and choose <span class="menu">Camera › OffSight Camera</span>.</li>
+        <li>You should see the <strong>Camera off</strong> placeholder, and OffSight asks whether Photo Booth may see you.</li>
+        <li>Click <strong>Go live for this session</strong>. Photo Booth shows you.</li>
+        <li>In the OffSight menu, click <strong>Close shutter for Photo Booth</strong>. Photo Booth shows the placeholder again.</li>
+      </ol>
+
+      <h3 id="apps-bypass">Don’t leave a back door open</h3>
+      <p class="callout warn">If a meeting app is set to your real camera (for example “FaceTime HD Camera” or “MacBook Pro Camera”), it bypasses OffSight. OffSight notices. The menu bar icon shows a <img class="glyph" src="images/menubar-unprotected.svg" alt="">warning triangle, and the menu says which camera is in use. Switch that app to <strong>OffSight Camera</strong>.</p>
+    </section>
+
+    <!-- ───────────────────────────── 4 ───────────────────────────── -->
+    <section id="daily">
+      <h2>Use OffSight day to day</h2>
+
+      <h3 id="daily-icon">The menu bar icon</h3>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Icon</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><img class="glyph" src="images/menubar-idle.svg" alt="">Idle</td><td>No app is using OffSight Camera.</td></tr>
+          <tr><td><img class="glyph" src="images/menubar-protected.svg" alt="">Protected</td><td>Apps are connected and see the placeholder.</td></tr>
+          <tr><td><img class="glyph" src="images/menubar-live.svg" alt="">Live</td><td>At least one app is getting your real camera.</td></tr>
+          <tr><td><img class="glyph" src="images/menubar-unprotected.svg" alt="">Unprotected</td><td>An app is using your real camera directly, not through OffSight. This shows over every other state.</td></tr>
+          <tr><td><img class="glyph" src="images/menubar-paused.svg" alt="">Paused</td><td>You paused protection for a while.</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>Each state has its own shape, so you can tell them apart without colour. To add coloured badges, turn on <span class="menu">Settings › General › Coloured status icon</span>.</p>
+
+      <h3 id="daily-prompt">When a meeting app turns on the camera</h3>
+      <p>A small window appears near the top right of the screen:</p>
+      <ul>
+        <li><em>“Zoom wants to use your camera. It sees the placeholder until you go live.”</em></li>
+        <li>A preview of your camera, which only you can see.</li>
+        <li><strong>Keep placeholder</strong> or <strong>Go live for this session</strong>.</li>
+      </ul>
+      <p>The window never takes keyboard focus, so a stray <kbd>Return</kbd> or <kbd>Space</kbd> can’t approve it. Click a button.</p>
+      <p><strong>With the keyboard or VoiceOver:</strong> VoiceOver announces each prompt. The prompt’s buttons accept only real pointer clicks, so that no other app can approve on your behalf; instead, choose <strong>Go live for <em>App</em></strong> in the OffSight menu, or set a <a href="#settings-shortcuts">Go live shortcut</a>.</p>
+      <p>If you don’t answer, the window closes itself after 30 seconds and the app keeps the placeholder. You can change this time in <a href="#settings-approvals">Settings › Approvals</a>.</p>
+
+      <h3 id="daily-later">Go live later</h3>
+      <p>Chose <strong>Keep placeholder</strong> and changed your mind? Open the OffSight menu and click <strong>Go live for <em>App</em> (this session)</strong>. The meeting app doesn’t need to restart its video.</p>
+
+      <h3 id="daily-close">Close the shutter</h3>
+      <ul>
+        <li><strong>One app:</strong> OffSight menu › <strong>Close shutter for <em>App</em></strong>.</li>
+        <li><strong>Every app at once:</strong> OffSight menu › <strong>Close all shutters</strong>, or press <kbd>⌃</kbd><kbd>⌥</kbd><kbd>⌘</kbd><kbd>O</kbd> from anywhere. You can change the shortcut in <a href="#settings-shortcuts">Settings › Shortcuts</a>.</li>
+      </ul>
+      <p>Closing the shutter takes effect at once. The call doesn’t drop, and others see the placeholder.</p>
+
+      <h3 id="daily-sessions">When a session ends</h3>
+      <p>Approval lasts for one <strong>camera session</strong>: until the app stops using the camera, for example when you leave the call. The next call asks again.</p>
+      <p>A short stop and restart, such as switching cameras or a brief reconnect, doesn’t count as a new session if it happens within the <strong>grace period</strong> (15 seconds by default, <a href="#settings-approvals">Settings › Approvals</a>).</p>
+      <p>When your Mac sleeps, every session ends and the shutters close.</p>
+
+      <h3 id="daily-several">Several apps at once</h3>
+      <p>Each app is asked separately. Live video goes out only while <strong>every</strong> app using OffSight Camera is approved. If one isn’t, the menu says <em>“Live video is held back until … is approved.”</em> That way approving one app can never show you to another.</p>
+
+      <h3 id="daily-pause">Pause protection</h3>
+      <p>OffSight menu › <span class="menu">Pause protection › For 15 minutes</span> or <span class="menu">For 1 hour</span>. While paused, apps get live video without asking, and the icon shows <img class="glyph" src="images/menubar-paused.svg" alt="">pause bars. Protection resumes on its own when the time is up. You can also click <strong>Resume protection now</strong> in the menu.</p>
+
+      <h3 id="daily-notifications">Notifications</h3>
+      <p>OffSight can tell you when an app goes live and when its session ends. macOS asks for permission the first time. Turn it off in <a href="#settings-general">Settings › General</a>.</p>
+
+      <h3 id="daily-mirror">Your mirror image</h3>
+      <p>Many meeting apps mirror your own preview, so “Camera off” may look reversed <strong>to you</strong>. Other people see it the right way round.</p>
+    </section>
+
+    <!-- ───────────────────────────── 5 ───────────────────────────── -->
+    <section id="settings">
+      <h2>Settings</h2>
+      <p>Open the OffSight menu › <strong>Settings…</strong></p>
+
+      <h3 id="settings-general">General</h3>
+      <ul>
+        <li><strong>Launch OffSight at login.</strong> On by default. Recommended.</li>
+        <li><strong>Notify when an app goes live and when its session ends.</strong></li>
+        <li><strong>Coloured status icon.</strong> Adds coloured badges to the menu bar icon.</li>
+      </ul>
+
+      <h3 id="settings-camera">Camera</h3>
+      <ul>
+        <li><strong>Live camera.</strong> The real camera OffSight uses when you go live. <strong>Automatic</strong> uses the built-in camera first. Choose another camera here if you use a webcam.</li>
+        <li><strong>Placeholder.</strong> What apps see until you go live: the OffSight “Camera off” picture, or your own image (<strong>Choose Image…</strong>, PNG, JPEG or HEIC). Your image fills the frame, so the edges of an image with a different shape are trimmed. <strong>Use Default</strong> goes back to the OffSight picture.</li>
+        <li><strong>Video Effects for Live Video…</strong> Opens a private preview of your camera and shows which macOS effects are on. Click <strong>Choose Effects…</strong> to pick Portrait (background blur), Studio Light, Background (replace your background, macOS 15 or later) and others for OffSight. They apply to your live video in every meeting app, and never to the placeholder. Some effects need a Mac with Apple silicon.</li>
+      </ul>
+
+      <h3 id="settings-approvals">Approvals</h3>
+      <ul>
+        <li><strong>Prompt closes after:</strong> 5 to 120 seconds (default 30). The prompt always closes to the placeholder, never to live video.</li>
+        <li><strong>Grace period:</strong> 5 seconds to 5 minutes (default 15 seconds).</li>
+      </ul>
+      <p>There is no “always allow” option. This is deliberate.</p>
+
+      <h3 id="settings-shortcuts">Shortcuts</h3>
+      <ul>
+        <li><strong>Close all shutters:</strong> default <kbd>⌃</kbd><kbd>⌥</kbd><kbd>⌘</kbd><kbd>O</kbd>.</li>
+        <li><strong>Go live for the app asking now:</strong> off until you set one. It only works when exactly one app is asking.</li>
+      </ul>
+      <p>To set a shortcut, click it, then type a key combination that includes <kbd>⌃</kbd>, <kbd>⌥</kbd> or <kbd>⌘</kbd>. Press <kbd>Esc</kbd> to cancel, or <strong>Clear</strong> to remove it. If another app already uses the combination, OffSight tells you.</p>
+
+      <h3 id="settings-advanced">Advanced</h3>
+      <ul>
+        <li><strong>Camera extension:</strong> status, <strong>Install / Update</strong>, <strong>Approve in System Settings…</strong>, <strong>Remove</strong>.</li>
+        <li><strong>Camera Privacy Settings…</strong></li>
+        <li><strong>Copy Diagnostics:</strong> copies a text report for support. It contains no images or personal content.</li>
+      </ul>
+    </section>
+
+    <!-- ───────────────────────────── 6 ───────────────────────────── -->
+    <section id="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <dl class="faq">
+        <dt>OffSight Camera isn’t in my meeting app’s camera list.</dt>
+        <dd>Check that the OffSight menu says <strong>Camera extension: Connected</strong>. If it asks for approval, follow <a href="#setup-extension">Step 2</a>. Then quit and reopen the meeting app, because many apps list cameras only when they start.</dd>
+
+        <dt>The menu says “Installed but not running — restart the Mac if this persists”.</dt>
+        <dd>macOS sometimes waits for a restart before starting a new or updated camera extension. Restart your Mac.</dd>
+
+        <dt>The app shows a black or grey picture instead of the placeholder.</dt>
+        <dd>Make sure the app’s window is visible: some apps, like Photo Booth, turn the camera off while their window is hidden. If it persists, open <span class="menu">Settings › Advanced › Install / Update</span>, then quit and reopen the meeting app. If it still happens, send <strong>Copy Diagnostics</strong> to support.</dd>
+
+        <dt>No prompt appears when I start a call.</dt>
+        <dd>The app is probably using your real camera, not OffSight Camera. The menu bar icon will show a warning triangle. Choose <strong>OffSight Camera</strong> in that app (<a href="#apps">Set up your meeting apps</a>).</dd>
+
+        <dt>I approved an app but others still see the placeholder.</dt>
+        <dd>Another app is also using OffSight Camera and hasn’t been approved. The menu says which one. Approve it or close it.</dd>
+
+        <dt>My live video looks slightly soft.</dt>
+        <dd>OffSight Camera always runs at 1440p or more, so macOS effects can never hide the placeholder. A 1080p camera is scaled up to fit, which adds no detail. Meeting apps usually send 720p or 1080p anyway.</dd>
+
+        <dt>The shortcut doesn’t work.</dt>
+        <dd>Another app may use the same keys. Choose a different shortcut in <a href="#settings-shortcuts">Settings › Shortcuts</a>.</dd>
+
+        <dt>What happens if I quit OffSight during a call?</dt>
+        <dd>Apps keep getting the placeholder, never live video. Open OffSight again to go live.</dd>
+      </dl>
+    </section>
+
+    <!-- ───────────────────────────── 7 ───────────────────────────── -->
+    <section id="privacy">
+      <h2>Privacy</h2>
+      <ul>
+        <li>OffSight works entirely on your Mac. It has no account and sends nothing over the network.</li>
+        <li>The prompt’s camera preview is shown only to you. It isn’t sent to the meeting app.</li>
+        <li>OffSight doesn’t record or store video.</li>
+        <li>Diagnostics contain app names and technical state only. They contain no images.</li>
+      </ul>
+    </section>
+
+    <!-- ───────────────────────────── 8 ───────────────────────────── -->
+    <section id="remove">
+      <h2>Remove OffSight</h2>
+      <ol class="steps">
+        <li>Open <span class="menu">OffSight › Settings › Advanced</span> and click <strong>Remove</strong> next to the camera extension. Confirm if macOS asks.</li>
+        <li>Quit OffSight from its menu.</li>
+        <li>Drag OffSight from <strong>Applications</strong> to the Bin.</li>
+        <li>In each meeting app, choose your real camera again.</li>
+      </ol>
+    </section>
+  </main>
+</div>
+
+<script>
+  // Highlight the section being read in the contents.
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+    var sections = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+    function update() {
+      var current = 0;
+      sections.forEach(function (section, i) {
+        if (section && section.getBoundingClientRect().top < 120) { current = i; }
+      });
+      links.forEach(function (a, i) { a.classList.toggle('active', i === current); });
+    }
+    document.addEventListener('scroll', update, { passive: true });
+    update();
+  })();
+</script>
+</body>
+</html>

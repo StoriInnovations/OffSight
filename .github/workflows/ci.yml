@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  core-tests:
+    name: OffSightCore unit tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version
+      - name: Test
+        run: swift test --package-path Packages/OffSightCore
+      - name: Build the on-device test tool
+        run: swift build --package-path Tools/OffSightTest
+
+  build:
+    name: Build (${{ matrix.configuration }}, unsigned)
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release, AppStore]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -project OffSight.xcodeproj -scheme OffSight \
+            -configuration ${{ matrix.configuration }} \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tee build.log
+      - name: Check extension is embedded
+        run: |
+          APP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app"
+          ls -R "$APP/Contents/Library/SystemExtensions" | head -20
+          test -d "$APP/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension"
+      - name: Privacy manifests are bundled
+        run: |
+          APP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app"
+          plutil -lint "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
+          plutil -lint "$APP/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension/Contents/Resources/PrivacyInfo.xcprivacy"
+      - name: Launch agent is bundled
+        run: |
+          AGENT="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app/Contents/Library/LaunchAgents/com.storiinnovations.offsight.agent.plist"
+          plutil -lint "$AGENT"
+          test "$(plutil -extract BundleProgram raw "$AGENT")" = "Contents/MacOS/OffSight"
+      - name: Help page is bundled
+        run: |
+          HELP="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app/Contents/Resources/Help"
+          ls "$HELP" "$HELP/images"
+          test -f "$HELP/index.html"
+          # Every image the page references (outside HTML comments) must be in the bundle.
+          for img in $(perl -0pe 's/<!--.*?-->//gs' "$HELP/index.html" | grep -oE 'images/[A-Za-z0-9._-]+' | sort -u); do
+            test -f "$HELP/$img" || { echo "::error::Help page references missing $img"; exit 1; }
+          done
+      - name: Camera extension does not link AppKit
+        run: |
+          EXT="build/DerivedData/Build/Products/${{ matrix.configuration }}/OffSight.app/Contents/Library/SystemExtensions/com.storiinnovations.offsight.camera-extension.systemextension/Contents/MacOS/com.storiinnovations.offsight.camera-extension"
+          otool -L "$EXT"
+          if otool -L "$EXT" | grep -E "AppKit|SwiftUI"; then
+            echo "::error::The camera extension must not link AppKit or SwiftUI"
+            exit 1
+          fi
+      - name: Asset catalogs build without warnings
+        run: |
+          if grep -iE "warning:.*(xcassets|imageset|appiconset|colorset|actool|asset catalog|AppIcon)" build.log; then
+            echo "::error::Asset catalog warnings found"
+            exit 1
+          fi
+          echo "No asset catalog warnings"
+      - name: Verify brand assets against handoff exports
+        if: matrix.configuration == 'Debug'
+        run: |
+          swift scripts/ci/verify-brand-assets.swift \
+            "build/DerivedData/Build/Products/Debug/OffSight.app" \
+            design_handoff_offsight_brand build/brand-renders
+      - name: Upload brand renders
+        if: always() && matrix.configuration == 'Debug'
+        uses: actions/upload-artifact@v4
+        with:
+          name: brand-renders
+          path: build/brand-renders
+          if-no-files-found: ignore

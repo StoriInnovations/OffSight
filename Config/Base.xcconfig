@@ -1,0 +1,14 @@
+// Shared build settings for all OffSight targets and configurations.
+#include "Signing.xcconfig"
+
+MACOSX_DEPLOYMENT_TARGET = 13.0
+SWIFT_VERSION = 5.0
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+CODE_SIGN_STYLE = Automatic
+// Release automation signs manually with named distribution profiles (docs/06-releasing.md);
+// empty for normal (automatic) signing.
+OFFSIGHT_APP_PROFILE =
+OFFSIGHT_EXT_PROFILE =
+ENABLE_HARDENED_RUNTIME = YES
+DEAD_CODE_STRIPPING = YES

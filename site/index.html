@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OffSight — a software camera shutter for your Mac</title>
+<meta name="description" content="OffSight shows meeting apps a Camera off picture until you approve live video, per app, per call.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a href="index.html" aria-label="OffSight home">
+      <picture>
+        <source srcset="help/images/lockup-horizontal-on-dark.svg" media="(prefers-color-scheme: dark)">
+        <img src="help/images/lockup-horizontal-on-light.svg" alt="OffSight">
+      </picture>
+    </a>
+    <nav aria-label="Site">
+        <a href="index.html" aria-current="page">Home</a>
+        <a href="help/index.html">Help</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="support.html">Support</a>
+        <a href="https://github.com/astatine-/offsight">Source</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <div class="wrap">
+    <h1>A camera shutter, in software</h1>
+    <p class="lead">Meeting apps see a “Camera off” picture until you say <strong>Go live</strong>, for that app, for that call. When the call ends, the shutter closes again on its own.</p>
+    <figure>
+      <img src="help/images/placeholder-camera-off.jpg" alt="The OffSight placeholder: a closed iris with the words Camera off, Protected by OffSight" width="640">
+      <figcaption>What other people see until you go live.</figcaption>
+    </figure>
+    <h2>How it works</h2>
+    <ul>
+      <li>OffSight adds <strong>OffSight Camera</strong> to your Mac. Choose it once in Zoom, Teams, Meet, Webex, Slack or FaceTime.</li>
+      <li>When an app turns the camera on, it gets the placeholder, and OffSight asks you whether that app may see you, with a private preview only you can see.</li>
+      <li>Approval lasts for one call. There is no “always allow”.</li>
+      <li>If anything goes wrong, apps keep the placeholder. OffSight fails safe.</li>
+      <li>Everything happens on your Mac. OffSight collects no data and has no network access.</li>
+    </ul>
+    <p>Requires macOS 13 Ventura or later.</p>
+    <div class="cards">
+      <a class="card" href="help/index.html"><strong>Help</strong><span>Setup, meeting apps, everyday use, troubleshooting.</span></a>
+      <a class="card" href="privacy.html"><strong>Privacy policy</strong><span>No data collected. Nothing leaves your Mac.</span></a>
+      <a class="card" href="support.html"><strong>Support</strong><span>Open source, as is. How to report problems.</span></a>
+      <a class="card" href="https://github.com/astatine-/offsight"><strong>Source code</strong><span>On GitHub, under the MIT License.</span></a>
+    </div>
+  </div>
+</main>
+<footer class="site">
+  <div class="wrap">
+    OffSight is open-source software under the <a href="https://github.com/astatine-/offsight/blob/main/LICENSE">MIT License</a>, provided “as is”, without warranty of any kind.
+  </div>
+</footer>
+</body>
+</html>

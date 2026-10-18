@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E6E9ED;color:#1C2129;font-family:'Instrument Sans',Helvetica,sans-serif;-webkit-font-smoothing:antialiased}a{color:#2F6E6B}a:hover{color:#1C2129}</style>
+</helmet>
+<section style="padding:72px 80px 24px;width:2440px;box-sizing:border-box">
+  <article id="3a" style="background:#FFFFFF;border-radius:20px;padding:44px 48px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:56px;box-shadow:0 1px 2px rgba(28,33,41,.06),0 8px 24px rgba(28,33,41,.05)">
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:500;background:#1C2129;color:#D9DEE5;padding:5px 10px;border-radius:6px">3a</span>
+        <h2 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-0.01em">Colour in the menu bar</h2>
+      </div>
+      <p style="margin:0;font-size:17px;line-height:1.6;color:#3A4250;text-wrap:pretty">The icon and glyphs have no status colours today. Only the app icon uses the teal accent. Colour can be added as an <b>optional reinforcement</b>, applied to the badge only. The iris itself stays monochrome, so each state still reads by shape.</p>
+      <div style="display:flex;flex-direction:column;gap:12px;font-size:15px;line-height:1.55;color:#3A4250">
+        <div style="display:flex;gap:12px"><span style="width:12px;height:12px;border-radius:6px;background:#E5352B;flex:none;margin-top:5px"></span><span><b>Live: red dot. Yes.</b> This is the universal "on air" or recording signal, and it's the one state that should pull your eye.</span></div>
+        <div style="display:flex;gap:12px"><span style="width:12px;height:12px;border-radius:2px;background:#D97A00;flex:none;margin-top:5px"></span><span><b>Unprotected: amber, not yellow.</b> Pure yellow almost disappears on a light menu bar, so use a deeper amber there.</span></div>
+        <div style="display:flex;gap:12px"><span style="width:12px;height:12px;border-radius:6px;background:#2F8580;flex:none;margin-top:5px"></span><span><b>Protected: brand teal, not green.</b> macOS already shows a green dot to mean "camera is on". A green Protected would say the opposite of what it means. Teal also ties Protected back to the app icon. I'd still keep it monochrome by default, because it's the everyday state and a permanently coloured icon becomes noise.</span></div>
+        <div style="display:flex;gap:12px"><span style="width:12px;height:12px;border-radius:6px;border:1.5px solid #1C2129;flex:none;margin-top:4px;box-sizing:border-box"></span><span><b>Idle and Paused stay monochrome.</b> Paused is a choice you made, not an alarm.</span></div>
+      </div>
+      <p style="margin:0;font-size:14px;line-height:1.55;color:#5B6573;text-wrap:pretty">How to ship it: keep the template glyphs from <a href="#2a">2a</a> as the default. Turn on colour badges with a "Coloured status" setting, using these non-template images with separate light and dark versions. Red and green look alike to colour-blind users, so red is never the only cue: the open iris and dot still say Live.</p>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;color:#3A4250">assets/iris-v2/menubar-{state}-color-{light,dark}.svg + -1x.png / -2x.png</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">Monochrome vs coloured · large, then actual size</div>
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+        <sc-for list="{{ v2 }}" as="s" hint-placeholder-count="5">
+          <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+            <div style="display:grid;grid-template-columns:1fr 1fr;width:100%;border-radius:12px;overflow:hidden">
+              <div style="background:#F3F3F5;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0"><img src="{{ s.svg }}" alt="" style="width:64px;height:64px;display:block"><img src="{{ s.cl }}" alt="" style="width:64px;height:64px;display:block"></div>
+              <div style="background:#26272B;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0"><img src="{{ s.svg }}" alt="" style="width:64px;height:64px;display:block;filter:invert(1)"><img src="{{ s.cd }}" alt="" style="width:64px;height:64px;display:block"></div>
+            </div>
+            <span style="font-size:15px;font-weight:600">{{ s.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:#F3F3F5;border:1px solid #E1E3E7;border-radius:8px;height:30px;display:flex;align-items:center;justify-content:flex-end;gap:22px;padding:0 16px">
+        <sc-for list="{{ v2 }}" as="s" hint-placeholder-count="5"><img src="{{ s.cl }}" alt="" style="width:18px;height:18px;display:block"></sc-for>
+        <span style="font-size:13px;font-weight:500">09:41</span>
+      </div>
+      <div style="background:#26272B;border-radius:8px;height:30px;display:flex;align-items:center;justify-content:flex-end;gap:22px;padding:0 16px">
+        <sc-for list="{{ v2 }}" as="s" hint-placeholder-count="5"><img src="{{ s.cd }}" alt="" style="width:18px;height:18px;display:block"></sc-for>
+        <span style="font-size:13px;font-weight:500;color:#ECEEF1">09:41</span>
+      </div>
+    </div>
+  </article>
+</section>
+<section style="padding:72px 80px 24px;width:2440px;box-sizing:border-box">
+  <article id="2a" style="background:#FFFFFF;border-radius:20px;padding:44px 48px;display:flex;flex-direction:column;gap:40px;box-shadow:0 1px 2px rgba(28,33,41,.06),0 8px 24px rgba(28,33,41,.05)">
+    <div style="display:flex;flex-direction:column;gap:14px;max-width:1240px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:500;background:#1C2129;color:#D9DEE5;padding:5px 10px;border-radius:6px">2a</span>
+        <h2 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-0.01em">Iris menu bar set, v2: one silhouette per mode</h2>
+      </div>
+      <p style="margin:0;font-size:17px;line-height:1.6;color:#3A4250;text-wrap:pretty">In v1 every state shared the same thin pinwheel, and only a 7 px corner badge changed. At a glance the five glyphs blurred together. In v2 each mode changes the <b>whole mark</b>: how much ink it carries, whether the iris is shut or open, and what sits inside the ring. Every state keeps the iris, and each cue is drawn large enough to read at 18 pt. You can tell the state from the silhouette alone, before you read any detail.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:20px">
+      <sc-for list="{{ v2 }}" as="s" hint-placeholder-count="5">
+        <div style="display:flex;flex-direction:column;gap:16px;background:#F5F6F8;border-radius:16px;padding:28px 24px">
+          <div style="display:flex;align-items:flex-end;gap:20px">
+            <img src="{{ s.svg }}" alt="" style="width:108px;height:108px;display:block">
+            <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+              <div style="background:#FFFFFF;border-radius:6px;padding:4px"><img src="{{ s.png1 }}" alt="" style="width:54px;height:54px;display:block;image-rendering:pixelated"></div>
+              <div style="display:flex;gap:10px;align-items:center">
+                <img src="{{ s.svg }}" alt="" style="width:18px;height:18px;display:block">
+                <div style="background:#26272B;border-radius:4px;padding:3px;display:flex"><img src="{{ s.svg }}" alt="" style="width:18px;height:18px;display:block;filter:invert(1)"></div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span style="font-size:22px;font-weight:600">{{ s.label }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#5B6573;text-transform:uppercase;letter-spacing:.06em">{{ s.read }}</span>
+            </div>
+            <div style="font-size:15px;line-height:1.5;color:#3A4250;text-wrap:pretty">{{ s.desc }}</div>
+            <div style="font-size:13px;line-height:1.5;color:#6B7483;text-wrap:pretty;margin-top:4px"><b style="color:#3A4250;font-weight:600">Cue:</b> {{ s.cue }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:32px;align-items:start">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">In context · actual size · light and dark menu bars</div>
+        <sc-for list="{{ v2 }}" as="s" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:120px minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center">
+            <span style="font-size:14px;font-weight:600">{{ s.label }}</span>
+            <div style="background:#F3F3F5;border:1px solid #E1E3E7;border-radius:8px;height:28px;display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:0 14px">
+              <span style="width:14px;height:10px;border:1.5px solid #1C2129;border-radius:2px;opacity:.85"></span>
+              <img src="{{ s.svg }}" alt="" style="width:18px;height:18px;display:block">
+              <span style="font-size:13px;font-weight:500">09:41</span>
+            </div>
+            <div style="background:#26272B;border-radius:8px;height:28px;display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:0 14px">
+              <span style="width:14px;height:10px;border:1.5px solid #ECEEF1;border-radius:2px;opacity:.85"></span>
+              <img src="{{ s.svg }}" alt="" style="width:18px;height:18px;display:block;filter:invert(1)">
+              <span style="font-size:13px;font-weight:500;color:#ECEEF1">09:41</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">Squint test · blurred to peripheral vision</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="font-size:13px;color:#6B7483;width:28px">v1</span>
+            <div style="flex:1;background:#F3F3F5;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between">
+              <sc-for list="{{ v1 }}" as="s" hint-placeholder-count="5"><img src="{{ s.svg }}" alt="" style="width:40px;height:40px;display:block;filter:blur(2.2px)"></sc-for>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="font-size:13px;font-weight:600;width:28px">v2</span>
+            <div style="flex:1;background:#F3F3F5;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between">
+              <sc-for list="{{ v2 }}" as="s" hint-placeholder-count="5"><img src="{{ s.svg }}" alt="" style="width:40px;height:40px;display:block;filter:blur(2.2px)"></sc-for>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="font-size:13px;width:28px"></span>
+            <div style="flex:1;display:flex;justify-content:space-between;padding:0 20px">
+              <sc-for list="{{ v2 }}" as="s" hint-placeholder-count="5"><span style="width:40px;text-align:center;font-size:12px;color:#5B6573">{{ s.label }}</span></sc-for>
+            </div>
+          </div>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.55;color:#5B6573;text-wrap:pretty">Blurred, v1 is five near-identical circles. v2 still separates into five things: light outline, outline with a solid badge, solid ring with a dot, outline with a triangle, and iris with bold centre bars. Live carries the most ink. Unprotected is the only glyph whose shape breaks out of the circle.</p>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;color:#3A4250;margin-top:6px">assets/iris-v2/menubar-{idle, protected, live, unprotected, paused}.svg + -1x.png / -2x.png</div>
+      </div>
+    </div>
+  </article>
+</section>
+<section style="padding:72px 80px 96px;display:flex;flex-direction:column;gap:48px;width:2440px;box-sizing:border-box">
+  <header style="display:flex;flex-direction:column;gap:12px;max-width:1100px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#5B6573">OffSight · Visual identity · Round 1 · Three directions</div>
+    <h1 style="margin:0;font-size:56px;font-weight:600;letter-spacing:-0.02em;line-height:1.05">A software lens cap, three ways.</h1>
+    <p style="margin:0;font-size:19px;line-height:1.5;color:#4A5361;text-wrap:pretty">Each direction gets a macOS app icon (824 pt squircle body on the 1024 grid, with a dedicated simplified master for 32/16), five monochrome template glyphs, wordmark + lockup, and the "Camera off" frame participants see. All artwork in <span style="font-family:'JetBrains Mono',monospace;font-size:16px">assets/&lt;direction&gt;/</span>. Recommendation at the bottom.</p>
+  </header>
+
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;align-items:start">
+    <sc-for list="{{ dirs }}" as="d" hint-placeholder-count="3">
+      <article id="{{ d.id }}" style="background:#FFFFFF;border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:36px;box-shadow:0 1px 2px rgba(28,33,41,.06),0 8px 24px rgba(28,33,41,.05)">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:500;background:#1C2129;color:#D9DEE5;padding:5px 10px;border-radius:6px">{{ d.id }}</span>
+            <h2 style="margin:0;font-size:34px;font-weight:600;letter-spacing:-0.01em">{{ d.name }}</h2>
+            <span style="font-size:16px;color:#5B6573">{{ d.tag }}</span>
+          </div>
+          <p style="margin:0;font-size:16px;line-height:1.6;color:#3A4250;text-wrap:pretty">{{ d.rationale }}</p>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">App icon · 1024 / 128 / 32 / 16</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;border-radius:14px;overflow:hidden">
+            <div style="background:#ECEEF1;display:flex;justify-content:center;align-items:center;padding:20px 0"><img src="{{ d.icon }}" alt="" style="width:300px;height:300px;display:block"></div>
+            <div style="background:#1E1F23;display:flex;justify-content:center;align-items:center;padding:20px 0"><img src="{{ d.icon }}" alt="" style="width:300px;height:300px;display:block"></div>
+            <div style="background:#ECEEF1;display:flex;justify-content:center;align-items:flex-end;gap:24px;padding:4px 0 24px">
+              <img src="{{ d.icon128 }}" alt="" style="width:128px;height:128px"><img src="{{ d.icon32 }}" alt="" style="width:32px;height:32px"><img src="{{ d.icon16 }}" alt="" style="width:16px;height:16px">
+            </div>
+            <div style="background:#1E1F23;display:flex;justify-content:center;align-items:flex-end;gap:24px;padding:4px 0 24px">
+              <img src="{{ d.icon128 }}" alt="" style="width:128px;height:128px"><img src="{{ d.icon32 }}" alt="" style="width:32px;height:32px"><img src="{{ d.icon16 }}" alt="" style="width:16px;height:16px">
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">Menu bar glyphs · 18 pt template · actual size, then @1x pixels ×4</div>
+          <div style="background:#F3F3F5;border-radius:10px;height:30px;display:flex;align-items:center;justify-content:flex-end;gap:22px;padding:0 18px;border:1px solid #E1E3E7">
+            <sc-for list="{{ d.states }}" as="s" hint-placeholder-count="5"><img src="{{ s.svg }}" alt="" style="width:18px;height:18px;display:block"></sc-for>
+            <span style="font-size:13px;font-weight:500;color:#1C2129">Sun 11 Oct 09:41</span>
+          </div>
+          <div style="background:#26272B;border-radius:10px;height:30px;display:flex;align-items:center;justify-content:flex-end;gap:22px;padding:0 18px">
+            <sc-for list="{{ d.states }}" as="s" hint-placeholder-count="5"><img src="{{ s.svg }}" alt="" style="width:18px;height:18px;display:block;filter:invert(1)"></sc-for>
+            <span style="font-size:13px;font-weight:500;color:#ECEEF1">Sun 11 Oct 09:41</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:6px">
+            <sc-for list="{{ d.states }}" as="s" hint-placeholder-count="5">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+                <div style="display:flex;gap:6px">
+                  <div style="background:#F3F3F5;border-radius:8px;padding:6px"><img src="{{ s.png1 }}" alt="" style="width:72px;height:72px;display:block;image-rendering:pixelated"></div>
+                </div>
+                <img src="{{ s.svg }}" alt="" style="width:36px;height:36px;display:block">
+                <div style="font-size:14px;font-weight:600">{{ s.label }}</div>
+                <div style="font-size:12px;line-height:1.4;color:#5B6573;text-align:center;text-wrap:pretty">{{ s.desc }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">Wordmark · {{ d.font }} · lockup</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;border-radius:14px;overflow:hidden">
+            <div style="background:#ECEEF1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:32px 16px">
+              <img src="{{ d.wmLight }}" alt="OffSight" style="height:56px;display:block">
+              <img src="{{ d.lkLight }}" alt="OffSight lockup" style="height:72px;display:block">
+            </div>
+            <div style="background:#1C2129;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:32px 16px">
+              <img src="{{ d.wmDark }}" alt="OffSight" style="height:56px;display:block">
+              <img src="{{ d.lkDark }}" alt="OffSight lockup" style="height:72px;display:block">
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">"Camera off" frame · 16:9 · 4:3 · 4:3 mirrored</div>
+          <img src="{{ d.ph169 }}" alt="" style="width:100%;aspect-ratio:16/9;display:block;border-radius:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <img src="{{ d.ph43 }}" alt="" style="width:100%;aspect-ratio:4/3;display:block;border-radius:10px">
+            <div style="position:relative">
+              <img src="{{ d.ph43 }}" alt="" style="width:100%;aspect-ratio:4/3;display:block;border-radius:10px;transform:scaleX(-1)">
+              <span style="position:absolute;top:10px;left:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#9AA3AF;background:rgba(0,0,0,.35);padding:3px 7px;border-radius:4px">MIRRORED SELF-VIEW</span>
+            </div>
+          </div>
+          <p style="margin:0;font-size:14px;line-height:1.5;color:#5B6573;text-wrap:pretty">{{ d.mirror }}</p>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">Colour · WCAG contrast</div>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+            <sc-for list="{{ d.swatches }}" as="w" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="height:56px;border-radius:10px;background:{{ w.hex }};border:1px solid rgba(28,33,41,.08)"></div>
+                <div style="font-size:14px;font-weight:600">{{ w.name }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#5B6573">{{ w.hex }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ d.contrast }}" as="c" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;border-bottom:1px solid #EEF0F2;padding:6px 0">
+                <span style="color:#3A4250">{{ c.label }}</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ c.val }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6B7483">Files · {{ d.folder }}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;color:#3A4250">{{ d.files }}</div>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+
+  <div style="background:#1C2129;color:#D9DEE5;border-radius:20px;padding:44px 48px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8A939F">Recommendation</div>
+      <div style="font-size:40px;font-weight:600;letter-spacing:-0.01em">Take <a href="#1a" style="color:#6FB7B4;text-decoration:none">1a</a> Iris forward.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;font-size:18px;line-height:1.6;max-width:1300px">
+      <p style="margin:0;text-wrap:pretty">It says "shutter" most directly — the mechanism itself, closed — with no lock, shield or eye. Its states separate cleanly at 18 pt: a thin pinwheel (idle) versus a solid disc with a hexagonal opening (live), so Live never depends on colour. It's rotationally symmetric, so a mirrored self-view only reverses the blade spin. The teal accent has the most contrast headroom on slate.</p>
+      <p style="margin:0;color:#AEB6C1;text-wrap:pretty">Carry forward from <a href="#1b" style="color:#E2A85E">1b</a>: the knurled metal rim, which gives a stronger "well-made object" feel. From <a href="#1c" style="color:#93C3A5">1c</a>: the softer tone of voice for onboarding and marketing illustration. Next round: tune the blade curvature for ownability, hint the 16 px master by hand, and outline the wordmark.</p>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const lum = h => { const v = [1,3,5].map(i => parseInt(h.slice(i,i+2),16)/255).map(c => c <= .03928 ? c/12.92 : Math.pow((c+.055)/1.055, 2.4)); return .2126*v[0]+.7152*v[1]+.0722*v[2]; };
+    const cr = (a,b) => { const x = lum(a), y = lum(b); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05); };
+    const fmt = (a,b) => { const r = cr(a,b); return r.toFixed(2)+':1 ' + (r >= 4.5 ? 'AA' : r >= 3 ? 'AA large / UI' : 'decorative'); };
+    const SL = '#1C2129', FG = '#D9DEE5', LW = '#ECEEF1', DW = '#1E1F23';
+    const stateDesc = {
+      idle: ['Idle','Outline mark. No app using the camera.'],
+      protected: ['Protected','+ split disc: shutter closed, placeholder out.'],
+      live: ['Live','Mark goes solid and opens, + dot.'],
+      unprotected: ['Unprotected','+ triangle: an app is bypassing.'],
+      paused: ['Paused','+ pause disc: protection off.']
+    };
+    const mk = (id, key, name, tag, font, accent, accentName, rationale, mirror) => {
+      const f = 'assets/' + key + '/';
+      return {
+        id, name, tag, font, folder: f, rationale, mirror,
+        icon: f+'appicon-1024.svg', icon128: f+'appicon-128.png', icon32: f+'appicon-32.png', icon16: f+'appicon-16.png',
+        wmLight: f+'wordmark-on-light.svg', wmDark: f+'wordmark-on-dark.svg', lkLight: f+'lockup-horizontal-on-light.svg', lkDark: f+'lockup-horizontal-on-dark.svg',
+        ph169: f+'placeholder-camera-off-16x9.svg', ph43: f+'placeholder-camera-off-4x3.svg',
+        states: Object.keys(stateDesc).map(s => ({ label: stateDesc[s][0], desc: stateDesc[s][1], svg: f+'menubar-'+s+'.svg', png1: f+'menubar-'+s+'-1x.png' })),
+        swatches: [{name:'Slate', hex:SL},{name:'Foreground', hex:FG},{name:accentName, hex:accent}],
+        contrast: [
+          {label:'Foreground on slate', val: fmt(FG,SL)},
+          {label:accentName+' on slate (inside icon)', val: fmt(accent,SL)},
+          {label:accentName+' on dark wallpaper', val: fmt(accent,DW)},
+          {label:accentName+' on light wallpaper', val: fmt(accent,LW)},
+          {label:'Slate body on light wallpaper', val: fmt(SL,LW)}
+        ],
+        files: 'appicon-1024.svg · appicon-1024.png · appicon-small.svg (16/32 master) · appicon-128/32/16.png · menubar-{idle, protected, live, unprotected, paused}.svg + -1x.png / -2x.png · wordmark-on-{light,dark}.svg · lockup-horizontal-on-{light,dark}.svg · placeholder-camera-off-{16x9,4x3}.svg + .png'
+      };
+    };
+    const v2f = 'assets/iris-v2/';
+    const v2 = [
+      ['idle','Idle','Nothing here','No app is using the camera. Light outline iris, the quietest state.','Thin ring with closed blades. Least ink.'],
+      ['protected','Protected','Shutter shut','An app is connected and sees the placeholder. The Idle iris carries a solid closed iris badge on top.','Outline iris + large solid iris badge, cut clear of the base.'],
+      ['live','Live','You\u2019re on','Your camera feed is going out. The iris opens wide, with a solid on-air dot.','Hexagon opening plus a dot. Heaviest mark.'],
+      ['unprotected','Unprotected','Exposed','An app is bypassing OffSight. The iris is open and unguarded, with a warning triangle.','Triangle breaks the circle. The only non-round silhouette.'],
+      ['paused','Paused','On hold','Protection is paused. A full-height pause sign sits over the iris, with the blades still visible around it.','Iris blades + two bold bars across the centre, cut clear of the blades.']
+    ].map(([k,label,read,desc,cue]) => ({ label, read, desc, cue, svg: v2f+'menubar-'+k+'.svg', png1: v2f+'menubar-'+k+'-1x.png', cl: v2f+'menubar-'+k+'-color-light.svg', cd: v2f+'menubar-'+k+'-color-dark.svg' }));
+    const v1 = ['idle','protected','live','unprotected','paused'].map(k => ({ svg: 'assets/iris/menubar-'+k+'.svg' }));
+    return { v2, v1, dirs: [
+      mk('1a','iris','Iris','Six blades, fully shut','Sora 600','#6FB7B4','Lens teal',
+        'A six-blade iris diaphragm, closed. The most literal shutter: the mechanism itself, shut. Anyone who has held a camera reads it, and it needs no eye or lock. Live is the same disc opened to a hexagon, so the state change is in the shape, not the colour. Faceted teal blades on brushed metal give the icon a precise, instrument-like calm. Risk: aperture marks are a crowded genre, so the blade curve and facet lighting have to make it ownable.',
+        'The iris is rotationally symmetric. Mirroring only reverses the blade spin, so it still reads as a closed iris. The text mirrors, but the mark carries the meaning.'),
+      mk('1b','cap','Cap','Lens cap with pinch grip','Instrument Sans 600','#E2A85E','Grip amber',
+        'A front-on lens cap: knurled metal rim, concentric grooves and one warm amber pinch grip. This is the most tactile reading of "a well-made physical lens cap", closer to product design than to a symbol. In the menu bar it becomes a ring with a grip slot. Live takes the cap off and shows a solid lens with a glass ring. Risk: at 16 pt the grip slot is a small detail, and a circle with a horizontal bar sits nearer generic "minus" and "stop" symbols than the other two.',
+        'Symmetric on both axes, so the mark is identical when mirrored. This is the safest of the three for self-view.'),
+      mk('1c','lid','Lid','The lens, resting','Nunito 700','#93C3A5','Lid sage',
+        'A lens whose opening has closed into one soft curve, like two leaves meeting. It\u2019s the calmest of the three ("resting", not "guarding") and the most direct visual pun on "out of sight". The glyph is just a ring and one stroke, which stays very clean at 16 pt. The two-tone sage lids add warmth. Risk: it leans toward a closed eye. The curve runs rim to rim with no lashes so it reads as a lens leaf, but later illustration needs care so it never becomes a face.',
+        'Mirror-symmetric left to right, so self-view is identical. Only the text reverses.')
+    ]};
+  }
+}
+</script>
+</body>
+</html>

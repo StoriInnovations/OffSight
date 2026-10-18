@@ -1,0 +1,107 @@
+# XcodeGen project definition. Generate the Xcode project with:  xcodegen generate
+# The generated OffSight.xcodeproj is not committed.
+name: OffSight
+
+options:
+  bundleIdPrefix: com.storiinnovations
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+configs:
+  Debug: debug
+  Release: release      # Homebrew build (Developer ID)
+  AppStore: release     # Mac App Store build
+
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+  AppStore: Config/Base.xcconfig
+
+settings:
+  configs:
+    AppStore:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: APPSTORE
+
+packages:
+  OffSightCore:
+    path: Packages/OffSightCore
+
+targets:
+  OffSightCameraExtension:
+    type: system-extension
+    platform: macOS
+    sources:
+      - path: CameraExtension
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
+    dependencies:
+      - package: OffSightCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(EXTENSION_BUNDLE_ID)
+        PROVISIONING_PROFILE_SPECIFIER: $(OFFSIGHT_EXT_PROFILE)
+        # System extension bundles must be named after their bundle identifier.
+        PRODUCT_NAME: $(PRODUCT_BUNDLE_IDENTIFIER)
+        PRODUCT_MODULE_NAME: OffSightCameraExtension
+        # macOS replaces an installed system extension only when this changes, and a replaced
+        # camera extension may not start until the next restart, so it can differ from the app's.
+        EXTENSION_BUILD_VERSION: $(CURRENT_PROJECT_VERSION)
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: ""
+        INFOPLIST_FILE: CameraExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: CameraExtension/CameraExtension.entitlements
+        SKIP_INSTALL: YES
+
+  OffSight:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
+          - "Help/**"
+          - "LaunchAgents/**"
+      # Launch agent for launch at login and relaunch after a crash (SMAppService.agent).
+      - path: App/LaunchAgents/com.storiinnovations.offsight.agent.plist
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchAgents
+      # Help page and its images, copied as a folder to Contents/Resources/Help.
+      - path: App/Help
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: OffSightCore
+      - target: OffSightCameraExtension
+        embed: true
+        codeSign: true
+        copy:
+          destination: productsDirectory
+          subpath: $(SYSTEM_EXTENSIONS_FOLDER_PATH)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PROVISIONING_PROFILE_SPECIFIER: $(OFFSIGHT_APP_PROFILE)
+        PRODUCT_NAME: OffSight
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: ""
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/OffSight.entitlements
+      configs:
+        AppStore:
+          CODE_SIGN_ENTITLEMENTS: App/OffSight-AppStore.entitlements
+
+schemes:
+  OffSight:
+    build:
+      targets:
+        OffSight: all
+        OffSightCameraExtension: all
+    run:
+      config: Debug
+    archive:
+      config: Release

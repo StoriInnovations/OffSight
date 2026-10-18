@@ -1,0 +1,26 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "filename": "lockup-horizontal-on-light.svg"
+    },
+    {
+      "idiom": "universal",
+      "filename": "lockup-horizontal-on-dark.svg",
+      "appearances": [
+        {
+          "appearance": "luminosity",
+          "value": "dark"
+        }
+      ]
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "template-rendering-intent": "original",
+    "preserves-vector-representation": true
+  }
+}

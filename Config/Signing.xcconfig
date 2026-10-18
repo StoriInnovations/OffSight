@@ -1,0 +1,11 @@
+// Non-secret signing identifiers for OffSight (see docs/02-architecture-and-implementation.md §18).
+// These appear in every signed binary and are safe to commit.
+// NEVER put certificates, private keys, profiles, API keys or passwords here (NFR-17a).
+
+TEAM_ID = 83QJANVRBL
+DEVELOPMENT_TEAM = $(TEAM_ID)
+
+BUNDLE_ID_PREFIX = com.storiinnovations
+APP_BUNDLE_ID = $(BUNDLE_ID_PREFIX).offsight
+EXTENSION_BUNDLE_ID = $(APP_BUNDLE_ID).camera-extension
+APP_GROUP_ID = $(TEAM_ID).$(APP_BUNDLE_ID)
