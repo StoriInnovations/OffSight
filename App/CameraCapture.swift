@@ -42,6 +42,9 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     private let frameQueue = DispatchQueue(label: "com.storiinnovations.offsight.capture.frames", qos: .userInteractive)
     private let controlQueue = DispatchQueue(label: "com.storiinnovations.offsight.capture.control")
     private var wantsRunning = false
+    private var dataOutput: AVCaptureVideoDataOutput?
+    /// BGRA size the data output delivers, or nil for the camera's own YUV at native size.
+    private var deliveredBGRASize: Dimensions?
 
     static var authorizationStatus: AVAuthorizationStatus {
         AVCaptureDevice.authorizationStatus(for: .video)
@@ -175,7 +178,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             // The camera's own YUV format, not BGRA: the system video effects chosen for OffSight
             // reached the preview but not frames converted to BGRA on delivery. SinkFeeder converts
             // to OffSight Camera's BGRA format with its pixel transfer (which also scales).
-            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
+            output.videoSettings = Self.videoSettings(bgra: deliveredBGRASize)
             output.alwaysDiscardsLateVideoFrames = true
             output.setSampleBufferDelegate(self, queue: frameQueue)
 
@@ -187,6 +190,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             }
             session.addInput(input)
             session.addOutput(output)
+            dataOutput = output
             // Capture in the camera's native mode (see nativeFormat). Prefer the matching standard
             // session preset and let macOS configure the camera, as Photo Booth and FaceTime do:
             // the system video effects chosen for OffSight (Background, Portrait…) were reported
@@ -224,6 +228,26 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         }
     }
 
+    private static func videoSettings(bgra size: Dimensions?) -> [String: Any] {
+        guard let size else {
+            return [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
+        }
+        return [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: size.width,
+                kCVPixelBufferHeightKey as String: size.height]
+    }
+
+    /// Asks the capture output for BGRA frames at `size` (scaled by the capture pipeline), or for
+    /// the camera's own YUV at native size when nil (B2 experiment). Main thread.
+    func setDeliveredBGRASize(_ size: Dimensions?) {
+        guard size != deliveredBGRASize else { return }
+        deliveredBGRASize = size
+        guard let output = dataOutput else { return }
+        let settings = Self.videoSettings(bgra: size)
+        controlQueue.async { output.videoSettings = settings }
+        log.info("Capture output: \(size.map { "BGRA \($0.description)" } ?? "native YUV", privacy: .public)")
+    }
+
     /// Drops the current camera so the next use picks up the camera chosen in Settings.
     /// Main thread; any live video stops until the next `setRunning(true)`.
     func reselectCamera() {
@@ -238,6 +262,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         wantsRunning = false
         isRunning = false
         isConfigured = false
+        dataOutput = nil
         deviceName = nil
         device = nil
         nativeFormat = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }

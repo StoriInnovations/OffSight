@@ -21,6 +21,8 @@ enum AppDefaults {
     // Advanced
     /// Experiment (B2): stop the sink stream while no app uses OffSight Camera.
     static let pauseSinkWhenIdleKey = "experimentPauseSinkWhenIdle"
+    /// Experiment (B2): how live frames are converted, a `LiveConversion` raw value.
+    static let liveConversionKey = "experimentLiveConversion"
 
     // Approvals
     static let promptExpiryKey = "promptExpirySeconds"
@@ -37,6 +39,7 @@ enum AppDefaults {
             liveCameraIDKey: "",
             selfViewWhileLiveKey: false,
             pauseSinkWhenIdleKey: false,
+            liveConversionKey: LiveConversion.videoToolbox.rawValue,
             promptExpiryKey: PolicySettings.defaultPromptExpiry,
             gracePeriodKey: PolicySettings.defaultGracePeriod,
             panicShortcutKey: KeyboardShortcut.defaultPanic.storageString,
@@ -65,6 +68,10 @@ enum AppDefaults {
 
     static var pauseSinkWhenIdle: Bool {
         UserDefaults.standard.bool(forKey: pauseSinkWhenIdleKey)
+    }
+
+    static var liveConversion: LiveConversion {
+        LiveConversion(rawValue: UserDefaults.standard.string(forKey: liveConversionKey) ?? "") ?? .videoToolbox
     }
 
     static func shortcut(forKey key: String) -> KeyboardShortcut? {

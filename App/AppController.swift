@@ -257,17 +257,13 @@ final class AppController: StatusMenuActions {
     }
 
     /// Notes which macOS video effects are active on OffSight's camera whenever that changes, with
-    /// what OffSight shows on screen at the time, to find what stops them reaching live video (B2).
+    /// the sink and live-conversion state at the time, to find what stops them reaching live video (B2).
     private func noteEffectsChange(live: Bool) {
         guard capture.isRunning else {
             lastEffectsNote = ""
             return
         }
-        let onScreen = NSApp.windows.filter { window in
-            window.isVisible && window.occlusionState.contains(.visible)
-                && !String(describing: type(of: window)).contains("StatusBar") // the menu bar icon's own window
-        }.count
-        let text = "effects: \(capture.activeEffectsDescription) (live \(live), OffSight windows on screen \(onScreen), sink \(link.sinkRunning ? "running" : "stopped"))"
+        let text = "effects: \(capture.activeEffectsDescription) (live \(live), sink \(link.sinkRunning ? "running" : "stopped"), conversion \(feeder.lastConversion))"
         guard text != lastEffectsNote else { return }
         lastEffectsNote = text
         note(text)
@@ -320,9 +316,11 @@ final class AppController: StatusMenuActions {
             // changed since, the extension rejects these frames until we catch up (§5.2).
             // While any app uses OffSight Camera and nobody is live, the app sends the placeholder.
             let anyClientStreaming = snapshot.clients.contains(where: \.streaming)
+            let conversion = AppDefaults.liveConversion
             feeder.update(SinkFeeder.Config(sendLive: live, sendPlaceholder: anyClientStreaming && !live,
                                             epoch: snapshot.epoch, generation: snapshot.generation,
-                                            format: snapshot.activeFormat))
+                                            format: snapshot.activeFormat, conversion: conversion))
+            capture.setDeliveredBGRASize(conversion == .captureOutput ? snapshot.activeFormat : nil)
             requestCameraFormatIfNeeded()
         } else {
             feeder.update(nil)

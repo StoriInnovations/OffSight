@@ -20,6 +20,8 @@ final class SinkFeeder {
         var epoch: UInt64
         var generation: UInt64
         var format: Dimensions
+        /// How live frames are converted (B2 experiment).
+        var conversion: LiveConversion = .videoToolbox
     }
 
     private let link: ExtensionLink
@@ -27,6 +29,23 @@ final class SinkFeeder {
     private let lock = NSLock()
     private var config: Config?
     private var transferSession: VTPixelTransferSession?
+    /// Created on first use, so the VideoToolbox path is untouched unless chosen.
+    private var transferSessionTried = false
+    private let cpuConverter = CPUFrameConverter()
+    /// Live frames that failed to convert (diagnostics).
+    private(set) var conversionFailures: UInt64 = 0
+    /// Conversion used for the last live frame (diagnostics; any thread).
+    var lastConversion: String {
+        lock.lock(); defer { lock.unlock() }
+        return conversionUsed
+    }
+    private var conversionUsed = "none yet"
+
+    private func noteConversion(_ name: String) {
+        lock.lock()
+        conversionUsed = name
+        lock.unlock()
+    }
     private var livePool: PoolCache
     private var placeholderPool: PoolCache
     private var placeholderMasters: [Dimensions: CVPixelBuffer] = [:]
@@ -46,12 +65,6 @@ final class SinkFeeder {
         self.link = link
         livePool = PoolCache()
         placeholderPool = PoolCache()
-        var session: VTPixelTransferSession?
-        if VTPixelTransferSessionCreate(allocator: kCFAllocatorDefault, pixelTransferSessionOut: &session) == noErr,
-           let session {
-            VTSessionSetProperty(session, key: kVTPixelTransferPropertyKey_ScalingMode, value: kVTScalingMode_Letterbox)
-            transferSession = session
-        }
         var placeholderSession: VTPixelTransferSession?
         if VTPixelTransferSessionCreate(allocator: kCFAllocatorDefault, pixelTransferSessionOut: &placeholderSession) == noErr {
             placeholderTransfer = placeholderSession
@@ -84,14 +97,44 @@ final class SinkFeeder {
         let current = config
         lock.unlock()
         // Gate 1: the app never sends live frames unless the policy says so.
-        guard let current, current.sendLive, let transferSession else { return }
+        guard let current, current.sendLive else { return }
         guard let output = livePool.buffer(for: current.format) else { return }
-        guard VTPixelTransferSessionTransferImage(transferSession, from: cameraFrame, to: output) == noErr else { return }
+        guard convert(cameraFrame, into: output, using: current.conversion) else {
+            conversionFailures += 1
+            return
+        }
         // Plain BGRA like the extension's advertised format: drop colour attachments copied from
         // the camera frame so the extension can stamp the frame with its own format description.
         CVBufferRemoveAllAttachments(output)
         send(output, tag: FrameTag(kind: .live, epoch: current.epoch, generation: current.generation)) { sent in
             if sent { self.framesSent += 1 } else { self.framesDropped += 1 }
+        }
+    }
+
+    /// Capture queue.
+    private func convert(_ cameraFrame: CVPixelBuffer, into output: CVPixelBuffer, using conversion: LiveConversion) -> Bool {
+        switch conversion {
+        case .videoToolbox:
+            if !transferSessionTried {
+                transferSessionTried = true
+                var session: VTPixelTransferSession?
+                if VTPixelTransferSessionCreate(allocator: kCFAllocatorDefault, pixelTransferSessionOut: &session) == noErr,
+                   let session {
+                    VTSessionSetProperty(session, key: kVTPixelTransferPropertyKey_ScalingMode, value: kVTScalingMode_Letterbox)
+                    transferSession = session
+                }
+            }
+            guard let transferSession else { return false }
+            noteConversion("VideoToolbox")
+            return VTPixelTransferSessionTransferImage(transferSession, from: cameraFrame, to: output) == noErr
+        case .cpu, .captureOutput:
+            // With .captureOutput the camera frame is normally BGRA at the right size already and
+            // this is a plain copy; until the capture output switches over it converts on the CPU.
+            let alreadyBGRA = CVPixelBufferGetPixelFormatType(cameraFrame) == kCVPixelFormatType_32BGRA
+            let sameSize = CVPixelBufferGetWidth(cameraFrame) == CVPixelBufferGetWidth(output)
+                && CVPixelBufferGetHeight(cameraFrame) == CVPixelBufferGetHeight(output)
+            noteConversion(alreadyBGRA && sameSize ? "copy of camera output" : "CPU (Accelerate)")
+            return cpuConverter.convert(cameraFrame, into: output)
         }
     }
 
