@@ -53,7 +53,7 @@ Development profiles: let Xcode manage them (Signing & Capabilities → *Automat
 
 ## 6. App Store Connect setup
 1. **API key** (for notarization and uploads from CI): App Store Connect → **Users and Access → Integrations → App Store Connect API → Team Keys** → **+**. Name it "OffSight CI" and give it the **App Manager** role. **Download the `.p8` straight away; it can only be downloaded once.** Note the **Key ID** and **Issuer ID**. If this is the first key, the Account Holder must request API access first.
-2. **App record** (needed for the S1 TestFlight spike): **Apps → + → New App** → Platform **macOS**, Name **OffSight** (have a backup name ready in case it's taken), Bundle ID `com.storiinnovations.offsight`, SKU `offsight-mac`.
+2. **App record** (needed for the S1 TestFlight spike): **Apps → + → New App** → Platform **macOS**, Name **OffSight** (have a backup name ready in case it's taken), Bundle ID `com.storiinnovations.offsight`, SKU `OffSight-Mac` (the SKU is only an App Store Connect label; nothing in the build uses it).
 3. **Business → Agreements:** make sure the free-apps agreement is active.
 
 ## 7. GitHub secrets (repository → Settings → Environments)
