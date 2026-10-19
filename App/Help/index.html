@@ -326,6 +326,7 @@
       <ul>
         <li><strong>Prompt closes after:</strong> 5 to 120 seconds (default 30). The prompt always closes to the placeholder, never to live video.</li>
         <li><strong>Grace period:</strong> 5 seconds to 5 minutes (default 15 seconds).</li>
+        <li><strong>Show the website for browser meetings:</strong> off by default; Homebrew version only. See <a href="#apps-browsers">Browsers</a>.</li>
       </ul>
       <p>There is no “always allow” option. This is deliberate.</p>
 
@@ -356,6 +357,9 @@
 
         <dt>The app shows a black or grey picture instead of the placeholder.</dt>
         <dd>Make sure the app’s window is visible: some apps, like Photo Booth, turn the camera off while their window is hidden. If it persists, open <span class="menu">Settings › Advanced › Install / Update</span>, then quit and reopen the meeting app. If it still happens, send <strong>Copy Diagnostics</strong> to support.</dd>
+
+        <dt>Photo Booth shows a black picture and OffSight doesn’t ask.</dt>
+        <dd>When Photo Booth opens with OffSight Camera already chosen, it may not turn the camera on. In Photo Booth’s <span class="menu">Camera</span> menu, choose another camera and then <strong>OffSight Camera</strong> again; OffSight then asks as usual. Meeting apps such as Teams and Google Meet aren’t affected.</dd>
 
         <dt>No prompt appears when I start a call.</dt>
         <dd>The app is probably using your real camera, not OffSight Camera. The menu bar icon will show a warning triangle. Choose <strong>OffSight Camera</strong> in that app (<a href="#apps">Set up your meeting apps</a>).</dd>

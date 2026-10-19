@@ -407,7 +407,7 @@ enum Scenarios {
     // MARK: Real apps
 
     static let photoBooth = Scenario(id: "photo-booth", title: "Photo Booth: prompt on launch, live on approval, placeholder on close",
-                                     requirements: "UR-01, UR-06, bug B1") { ctx in
+                                     requirements: "UR-01, UR-06, bugs B1, B3") { ctx in
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.PhotoBooth") else {
             return .skip("Photo Booth not installed")
         }
@@ -417,8 +417,16 @@ enum Scenarios {
         var app: NSRunningApplication?
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { running, _ in app = running }
         defer { app?.terminate() }
-        guard ctx.app.waitFor(12, { $0.sessions.contains { $0.app == "com.apple.PhotoBooth" } }) != nil else {
-            return .skip("Photo Booth didn't use OffSight Camera. In Photo Booth choose Camera › OffSight Camera once, then rerun.")
+        let usesOffSight: (TestHookState) -> Bool = { $0.sessions.contains { $0.app == "com.apple.PhotoBooth" } }
+        var reselected = false
+        if ctx.app.waitFor(12, usesOffSight) == nil {
+            // B3: opened with OffSight Camera already chosen, Photo Booth connects to it but often
+            // never starts it, so it shows black and OffSight has nothing to ask about.
+            print("   Photo Booth hasn't started OffSight Camera (B3). In Photo Booth choose another camera in the Camera menu, then OffSight Camera…")
+            guard ctx.app.waitFor(45, usesOffSight) != nil else {
+                return .skip("Photo Booth didn't use OffSight Camera. In Photo Booth choose Camera › OffSight Camera once, then rerun.")
+            }
+            reselected = true
         }
         guard ctx.app.waitFor(3, { $0.prompts.contains { $0.app == "com.apple.PhotoBooth" } }) != nil else {
             return .fail("No prompt for Photo Booth on launch (bug B1)")
@@ -432,7 +440,8 @@ enum Scenarios {
         guard ctx.app.waitFor(10, { !$0.sessions.contains { $0.app == "com.apple.PhotoBooth" } }) != nil else {
             return .fail("Photo Booth's session did not end after quitting")
         }
-        return .pass("Prompted, live, closed and ended")
+        return .pass(reselected ? "Prompted, live, closed and ended (after choosing the camera again: B3)"
+                                : "Prompted, live, closed and ended")
     }
 
     static let quickTime = Scenario(id: "quicktime", title: "QuickTime Player: new recording with OffSight Camera",
