@@ -4,7 +4,7 @@ OffSight is open-source software provided **as is**, without warranty or guarant
 
 ## Reporting a vulnerability
 
-Please report security problems **privately** through GitHub's [private vulnerability reporting](https://github.com/astatine-/offsight/security/advisories/new), not in a public issue.
+Please report security problems **privately** through GitHub's [private vulnerability reporting](https://github.com/StoriInnovations/OffSight/security/advisories/new), not in a public issue.
 
 The most important class of problem is anything that lets a meeting app (or any other process) receive **live camera video without the user's approval**, or stops OffSight failing closed to the placeholder. Examples:
 

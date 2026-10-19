@@ -25,7 +25,7 @@ The Homebrew build also shows the website for browser meetings (UR-34a); the App
 | `ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID` | Notarization and App Store upload |
 | `HOMEBREW_TAP_TOKEN` (optional) | Pushing the cask to the tap |
 
-4. **Homebrew tap:** create the public repository `astatine-/homebrew-offsight` with an empty `Casks/` folder. Users then install with `brew install --cask astatine-/offsight/offsight`. For the workflow to update it automatically, add `HOMEBREW_TAP_TOKEN`: a fine-grained token with *Contents: read and write* on that repository only. Without it, the cask file is attached to the GitHub Release for you to commit by hand.
+4. **Homebrew tap:** create the public repository `StoriInnovations/homebrew-offsight` with an empty `Casks/` folder. Users then install with `brew install --cask storiinnovations/offsight/offsight`. For the workflow to update it automatically, add `HOMEBREW_TAP_TOKEN`: a fine-grained token with *Contents: read and write* on that repository only. Without it, the cask file is attached to the GitHub Release for you to commit by hand.
 
 No certificate, key, profile or password is ever committed (NFR-17a); gitleaks runs on every push.
 

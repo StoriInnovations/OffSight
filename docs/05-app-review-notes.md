@@ -20,9 +20,9 @@ For the first build (spike S1): add it to an **external** TestFlight group. That
 | Name | OffSight |
 | Subtitle (30 chars max) | A camera shutter, in software |
 | Category | Utilities |
-| Privacy Policy URL | `https://astatine-.github.io/offsight/privacy.html` (or the custom domain) |
-| Support URL | `https://astatine-.github.io/offsight/support.html` |
-| Marketing URL | `https://astatine-.github.io/offsight/` |
+| Privacy Policy URL | `https://storiinnovations.github.io/offsight/privacy.html` (or the custom domain) |
+| Support URL | `https://storiinnovations.github.io/offsight/support.html` |
+| Marketing URL | `https://storiinnovations.github.io/offsight/` |
 | App Privacy | **Data Not Collected** |
 | Age rating | 4+ (no objectionable content) |
 | Encryption | Not used (`ITSAppUsesNonExemptEncryption` = NO in Info.plist) |

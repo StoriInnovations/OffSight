@@ -356,7 +356,7 @@ offsight/
 ### 13.3 Channels
 
 - **Mac App Store:** standard submission. Spike S1 sends an early TestFlight build through review to confirm that a camera extension using this source+sink design is accepted.
-- **Homebrew:** a project tap, **`astatine-/homebrew-offsight`**, with cask `offsight` (`depends_on macos: ">= :ventura"`, `uninstall` and `zap` stanzas). It can be submitted to the main `homebrew/cask` repository once it meets Homebrew's notability criteria.
+- **Homebrew:** a project tap, **`StoriInnovations/homebrew-offsight`**, with cask `offsight` (`depends_on macos: ">= :ventura"`, `uninstall` and `zap` stanzas). It can be submitted to the main `homebrew/cask` repository once it meets Homebrew's notability criteria.
 - **No in-app updater.** App Store and `brew upgrade` handle updates, so there is no network code at all. That is stricter than NFR-02 requires.
 
 ## 14. Testing strategy
@@ -437,7 +437,7 @@ These spikes run **first** (milestone M0). Each has a clear pass/fail result, an
 | A3 | App Store build shows the browser name only | **Accepted.** |
 | A4 | Sleep ends all sessions (R5) | **Accepted.** |
 | A5 | `KeyboardShortcuts` (MIT) as the only third-party dependency | **Accepted.** |
-| A6 | Project Homebrew tap `astatine-/homebrew-offsight` first | **Accepted.** |
+| A6 | Project Homebrew tap `StoriInnovations/homebrew-offsight` first | **Accepted.** |
 | A7 | How the extension recognises OffSight.app's video feed, given spike S5 (code-signing checks refused in the sandbox) | **Path check:** accept the client running from `/Applications/OffSight.app`, in all builds. Risk accepted as described under T3. |
 
 **Identifiers:**
@@ -450,7 +450,7 @@ These spikes run **first** (milestone M0). Each has a clear pass/fail result, an
 | App group | `$(TEAM_ID).com.storiinnovations.offsight`. On macOS, a group starting with the Team ID is tied to the code signature, so it needs no registration in the developer portal. |
 | Extension Mach service name | `$(TEAM_ID).com.storiinnovations.offsight.camera-extension` (must start with the app group) |
 | Code-signing requirement checked by the sink (§4.1) | `anchor apple generic and identifier "com.storiinnovations.offsight" and certificate leaf[subject.OU] = "$(TEAM_ID)"` |
-| Homebrew cask | `offsight` in tap `astatine-/homebrew-offsight` |
+| Homebrew cask | `offsight` in tap `StoriInnovations/homebrew-offsight` |
 
 Above, `$(TEAM_ID)` stands for `83QJANVRBL`; for example, the app group is `83QJANVRBL.com.storiinnovations.offsight`. The Team ID isn't secret and is written into every signed binary, so it is committed. Signing certificates, keys and profiles are secret and are never committed (§13.1).
 
