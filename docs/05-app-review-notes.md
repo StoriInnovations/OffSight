@@ -11,7 +11,20 @@ VERSION=1.0.0 scripts/appstore-upload.sh   # or set it
 
 The script archives the `AppStore` configuration, checks the archive (privacy manifest, embedded camera extension, App Sandbox), and uploads it with automatic signing. Xcode must be signed in to an account with the App Manager role, or set `ASC_KEY_PATH`, `ASC_KEY_ID` and `ASC_ISSUER_ID` for an App Store Connect API key. The build appears in **TestFlight** after processing.
 
-For the first build (spike S1): add it to an **external** TestFlight group. That sends it through Beta App Review, which tells us early whether App Review accepts the camera-extension design.
+For the first build (spike S1): add it to an **internal** group first and walk through the reviewer steps below on that build yourself. Then add it to an **external** TestFlight group. That sends it through Beta App Review, which tells us early whether App Review accepts the camera-extension design.
+
+Installing a TestFlight build replaces the copy in /Applications, including a Debug build from `scripts/dev-install.sh`, and macOS may ask again to allow the camera extension. Run `scripts/dev-install.sh` again to go back to the Debug build.
+
+**TestFlight › Test Information** (external testing):
+
+| Field | Value |
+|---|---|
+| Beta App Description | OffSight is a camera shutter in software: meeting apps see a "Camera off" picture until you approve them for the current call. |
+| What to Test | Choose OffSight Camera in your meeting apps (Zoom, Teams, Google Meet, Webex, Slack, FaceTime). Check that each app gets the placeholder until you click Go live, that Close all shutters (⌃⌥⌘O) works, and that the next call asks again. Report anything where an app sees live video without your approval. |
+| Feedback Email | the project's support address |
+| Privacy Policy URL | as in the table below |
+
+**Beta App Review Information:** contact details, no sign-in, and the notes from "Notes for App Review" below.
 
 ## App Store Connect fields
 
@@ -20,9 +33,9 @@ For the first build (spike S1): add it to an **external** TestFlight group. That
 | Name | OffSight |
 | Subtitle (30 chars max) | A camera shutter, in software |
 | Category | Utilities |
-| Privacy Policy URL | `https://storiinnovations.github.io/offsight/privacy.html` (or the custom domain) |
-| Support URL | `https://storiinnovations.github.io/offsight/support.html` |
-| Marketing URL | `https://storiinnovations.github.io/offsight/` |
+| Privacy Policy URL | `https://storiinnovations.github.io/OffSight/privacy.html` (or the custom domain) |
+| Support URL | `https://storiinnovations.github.io/OffSight/support.html` |
+| Marketing URL | `https://storiinnovations.github.io/OffSight/` |
 | App Privacy | **Data Not Collected** |
 | Age rating | 4+ (no objectionable content) |
 | Encryption | Not used (`ITSAppUsesNonExemptEncryption` = NO in Info.plist) |
@@ -57,7 +70,9 @@ Paste into **App Review Information › Notes**:
 > 2. Open Photo Booth and choose Camera › OffSight Camera. Photo Booth shows the "Camera off" placeholder, and OffSight shows a prompt near the top right of the screen with a private preview.
 > 3. Click "Go live for this session": Photo Booth now shows the real camera.
 > 4. In the OffSight menu, click "Close all shutters": Photo Booth shows the placeholder again.
-> 5. Quit Photo Booth and open it again: OffSight asks again (approval lasts one call).
+> 5. Quit Photo Booth. Open QuickTime Player, choose File › New Movie Recording, and pick OffSight Camera in the menu next to the record button: OffSight asks again, this time for QuickTime Player. Approval is per app and lasts one camera session; there is no "always allow".
+>
+> Note on Photo Booth: if Photo Booth is opened with OffSight Camera already chosen, Photo Booth sometimes doesn't start the camera and shows a black picture. Choosing Camera › OffSight Camera again starts it. Meeting apps such as Teams and Google Meet aren't affected.
 >
 > If the menu says "Installed but not running", macOS needs a restart to start the camera extension; this can happen right after installing or updating.
 >

@@ -38,7 +38,7 @@ No certificate, key, profile or password is ever committed (NFR-17a); gitleaks r
    - **Mac App Store upload:** archive → sign → upload. The build appears in App Store Connect › TestFlight after processing.
 4. In App Store Connect, attach the build to the version and submit it for review (see `docs/05-app-review-notes.md`).
 
-A manual run (Actions › Release › Run workflow, with a version) builds, notarizes and uploads, but does not create a tag or GitHub Release; the files are kept as a workflow artifact.
+A manual run (Actions › Release › Run workflow, with a version) builds, notarizes and uploads, but does not create a tag or GitHub Release; the files are kept as a workflow artifact. Its **target** picks the jobs: `appstore` (the default) only uploads to App Store Connect, `homebrew` only makes the Developer ID build, `both` runs both. A tag push always runs both. The `release` environment must allow the branch you run from (for example `main`) as well as `v*` tags.
 
 ## Releasing from a Mac without the workflow
 

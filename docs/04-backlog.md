@@ -32,7 +32,7 @@ Status of the work after the M0 working slice, checked against `docs/01-user-req
 | App Store preparation | **Done**: privacy manifests, export flag, `scripts/appstore-upload.sh`, `docs/05-app-review-notes.md`. |
 | TestFlight build through review (spike S1) | **Owner**: run `scripts/appstore-upload.sh`, add the build to an external TestFlight group. |
 | Release workflow + Homebrew cask | **Done**: `.github/workflows/release.yml`, `docs/06-releasing.md`. **Owner**: secrets in the `release` environment, create `StoriInnovations/homebrew-offsight`. |
-| Project site live | **Owner**: merge to `main`, enable GitHub Pages (Source: GitHub Actions); check `storiinnovations.github.io` resolves. |
+| Project site live | **Done**: https://storiinnovations.github.io/OffSight/ (GitHub Pages from Actions). The path follows the repository name and is case-sensitive: `/offsight/` is a 404. |
 | Account tasks | **Owner**: agreements, EU trader status, copyright holder for the listing. |
 
 ## Should and could

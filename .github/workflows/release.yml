@@ -12,6 +12,11 @@ on:
       version:
         description: "Version to release, e.g. 1.0.0 (manual runs build and upload but do not create a tag)"
         required: true
+      target:
+        description: "What to build (a tag push always builds both)"
+        type: choice
+        options: [appstore, homebrew, both]
+        default: appstore
 
 permissions:
   contents: write
@@ -26,6 +31,7 @@ env:
 jobs:
   homebrew:
     name: Homebrew build (Developer ID)
+    if: github.event_name == 'push' || inputs.target != 'appstore'
     runs-on: macos-15
     environment: release
     env:
@@ -81,6 +87,7 @@ jobs:
 
   appstore:
     name: Mac App Store upload
+    if: github.event_name == 'push' || inputs.target != 'homebrew'
     runs-on: macos-15
     environment: release
     steps:
