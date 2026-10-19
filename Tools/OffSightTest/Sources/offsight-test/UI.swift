@@ -87,7 +87,7 @@ extension Scenarios {
         guard UI.isTrusted else {
             return .skip("Allow your terminal in System Settings › Privacy & Security › Accessibility, then rerun.")
         }
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         let idleIcon = UI.statusItemDescription()
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()

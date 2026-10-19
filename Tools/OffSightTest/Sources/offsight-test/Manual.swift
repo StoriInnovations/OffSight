@@ -43,7 +43,7 @@ enum Manual {
         }
         print("\n── \(target.name) ──")
         guard ask("Test \(target.name) now? [y = yes, s = skip]", allowed: ["y", "s"]) == "y" else { return .skip("Skipped by tester") }
-        guard context.waitForIdle() else { return .skip("Another app is using OffSight Camera; close it first") }
+        if let notReady = context.waitForIdle() { return notReady }
         print(target.howTo)
         print("Waiting up to 90 s for \(target.name) to use OffSight Camera…")
         guard let state = context.app.waitFor(90, { $0.sessions.contains { $0.app == target.bundleID } }) else {
