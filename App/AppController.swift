@@ -392,12 +392,14 @@ final class AppController: StatusMenuActions {
 
     private func name(of app: AppKey) -> String {
         let base = resolvedApps[app]?.displayName ?? app.id
-        return BrowserSite.label(browser: base, host: browserSites[app]?.host)
+        return BrowserSite.label(browser: base, host: AppDefaults.showBrowserSite ? browserSites[app]?.host : nil)
     }
 
-    /// Best effort (UR-34a): once per browser session, ask the browser for its front tab's site.
+    /// Best effort and opt-in (UR-34a): once per browser session, ask the browser for its front
+    /// tab's site. Off by default, so macOS never asks to let OffSight control a browser unless
+    /// the user turned this on in Settings › Approvals.
     private func lookUpBrowserSites() {
-        guard BrowserContext.isAvailable else { return }
+        guard AppDefaults.showBrowserSite else { return }
         for session in engine.activeSessions where KnownClients.match(signingID: session.app.id)?.isBrowser == true {
             guard browserSites[session.app]?.sessionStart != session.startedAt else { continue }
             let start = session.startedAt

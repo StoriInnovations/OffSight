@@ -38,7 +38,7 @@ Status of the work after the M0 working slice, checked against `docs/01-user-req
 
 | Item | Requirement | Status |
 |---|---|---|
-| Website for browser meetings | UR-34a (S) | **Done** (Homebrew and Debug builds; App Store shows the browser name). Verify on device. |
+| Website for browser meetings | UR-34a (S) | **Done**, opt-in and off by default (Settings › Approvals), since macOS's "wants access to control" dialog alarmed users. Homebrew and Debug builds; App Store shows the browser name. Verify on device. |
 | External webcams and Continuity Camera | UR-30 (S) | Camera choice exists; **verify on device**. |
 | Initials placeholder | UR-27 (C) | **Done**. |
 | Local activity history | UR-24 (C) | Not built (not selected for this round). |

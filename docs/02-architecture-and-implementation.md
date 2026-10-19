@@ -262,8 +262,9 @@ The menu lists, for each session: app icon and name, the site name if known (UR-
 ## 9. Browser tab / site name (UR-34, UR-34a)
 
 - **Approval scope (UR-34):** always the browser's bundle ID. The helper processes of Chrome, Edge, Arc and Firefox, and WebKit's GPU process for Safari, are mapped to their host browser by `ClientIdentityResolver`.
-- **Site name (UR-34a, best effort):**
-  - **Homebrew build:** OffSight queries the browser's tabs through Apple Events (scripting dictionaries for Safari, Chrome, Edge and Arc), which needs the user's Automation permission. It picks the tab whose URL matches a known meeting domain (`meet.google.com`, `teams.microsoft.com`, `teams.live.com`, `*.zoom.us`, `*.webex.com`, `app.slack.com`), falling back to the front tab's title. For Firefox, which has limited scripting support, it shows the browser name only.
+- **Site name (UR-34a, best effort, opt-in):**
+  - **Off by default:** Settings › Approvals › *Show the website for browser meetings*. While it's off, OffSight sends browsers no Apple Events, so macOS never shows its "wants access to control" dialog, which users found alarming.
+  - **Homebrew build, when on:** OffSight reads the URL of the front tab of the browser's front window through Apple Events (Safari, Chrome, Edge, Arc, Brave), which needs the user's Automation permission, and shows its host. For Firefox, which has limited scripting support, it shows the browser name only.
   - **App Store build:** browser name only. The Apple Events exception entitlement this needs is unlikely to pass App Review, and the spec allows best effort. It can be revisited if Apple approves the entitlement.
   - Any failure, a denied permission, or a timeout over 200 ms falls back silently to the browser name.
 

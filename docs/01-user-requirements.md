@@ -144,7 +144,7 @@ Priority uses MoSCoW: **M** = Must, **S** = Should, **C** = Could, **W** = Won't
 | UR-32 | OffSight **must work with**: Zoom (desktop), Microsoft Teams (desktop), and Google Meet in Chrome and Safari. | M |
 | UR-33 | OffSight **must also work with**: Webex, Slack huddles, Teams and Meet in Edge, Arc and Firefox, and FaceTime. | M |
 | UR-34 | For browser-based meetings, **one approval covers the whole browser** for the session, and the approval prompt **must name the browser**. | M |
-| UR-34a | On a best-effort basis, the prompt and menu **should also show the tab title or website** (for example, meet.google.com). If it can't be determined, OffSight shows the browser name alone and works normally otherwise. | S |
+| UR-34a | On a best-effort basis, and only when the user turns it on (off by default, because macOS then asks the user to let OffSight control each browser), the prompt and menu **should also show the tab title or website** (for example, meet.google.com). If it can't be determined, OffSight shows the browser name alone and works normally otherwise. | S |
 
 ### 8.8 Bypass awareness
 
