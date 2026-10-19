@@ -36,6 +36,10 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
     private var sinkLoopActive = false
     private var sinkStats = SinkStats()
     private var sourceStats = SourceStats()
+    /// When frame counts were last pushed to clients (host seconds). Clients such as the app and
+    /// offsight-test may see the snapshot as last pushed, so counts are pushed while frames flow.
+    private var lastStatsPublish: TimeInterval = 0
+    private static let statsPublishInterval: TimeInterval = 0.25
     private var pendingFormat: Dimensions?
 
     /// Called (on the sink queue) with an authenticated request for a different format.
@@ -160,6 +164,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         lock.unlock()
         log.notice("Source stream started (active \(count))")
         startTimerIfNeeded()
+        publishSnapshot()
     }
 
     func stopSourceStreaming() {
@@ -232,6 +237,14 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
                               extensionVersion: BuildVersion(infoDictionary: Bundle.main.infoDictionary)).encodedJSON()
     }
 
+    /// Counts a frame handed to CoreMediaIO; true when it's time to push the counts. Call with `lock` held.
+    private func recordSent(_ origin: SourceStats.FrameOrigin, now: TimeInterval) -> Bool {
+        sourceStats.recordSent(origin, now: now)
+        guard now - lastStatsPublish >= Self.statsPublishInterval else { return false }
+        lastStatsPublish = now
+        return true
+    }
+
     private func publishSnapshot() {
         let state = CMIOExtensionPropertyState<AnyObject>(value: snapshotJSON() as NSString)
         sourceStream.stream.notifyPropertiesChanged([SourceStreamSource.snapshotProperty: state])
@@ -256,13 +269,17 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
     }
 
     private func timerFired() {
-        lock.lock(); defer { lock.unlock() }
-        guard sourceStreaming else { return }
+        lock.lock()
         let now = Self.hostSeconds()
-        guard gate.needsPlaceholderFrame(now: now) else { return }
-        guard let sampleBuffer = formats[activeFormatIndex].makePlaceholderSampleBuffer() else { return }
+        guard sourceStreaming, gate.needsPlaceholderFrame(now: now),
+              let sampleBuffer = formats[activeFormatIndex].makePlaceholderSampleBuffer() else {
+            lock.unlock()
+            return
+        }
         sourceStream.stream.send(sampleBuffer, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
-        sourceStats.sentFallback += 1
+        let publish = recordSent(.fallback, now: now)
+        lock.unlock()
+        if publish { publishSnapshot() }
     }
 
     // MARK: Sink (frames from OffSight.app)
@@ -359,19 +376,22 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource {
         let tag = Self.readTag(from: pixelBuffer)
 
         lock.lock()
+        let now = Self.hostSeconds()
         let verdict = gate.evaluateSinkFrame(tag: tag, sinkAuthenticated: sinkAuthenticated,
-                                             dimensions: dimensions, now: Self.hostSeconds())
+                                             dimensions: dimensions, now: now)
+        var publish = false
         if case .forward(let kind) = verdict {
             if sourceStreaming {
                 // Re-stamp with the advertised format description and our own timing (see VideoFormat).
                 let outgoing = formats[activeFormatIndex].makeSampleBuffer(wrapping: pixelBuffer) ?? sampleBuffer
                 sourceStream.stream.send(outgoing, discontinuity: [], hostTimeInNanoseconds: Self.hostNanoseconds())
-                if kind == .live { sourceStats.sentLive += 1 } else { sourceStats.sentAppPlaceholder += 1 }
+                publish = recordSent(kind == .live ? .live : .appPlaceholder, now: now)
             } else {
                 sourceStats.droppedNotStreaming += 1
             }
         }
         lock.unlock()
+        if publish { publishSnapshot() }
         if case .formatRequest(let requested) = verdict, requested != format {
             onFormatRequest?(requested)
         }

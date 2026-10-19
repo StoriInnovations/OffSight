@@ -1,3 +1,4 @@
+import CoreMedia
 import CoreMediaIO
 import Foundation
 import OffSightCore
@@ -10,7 +11,16 @@ enum Probe {
         var live: UInt64
         var appPlaceholder: UInt64
         var fallback: UInt64
+        /// Host-clock seconds (see `hostNow()`); nil from extensions built before they were added.
+        var lastLiveAt: Double?
+        var liveSince: Double?
+        var lastPlaceholderAt: Double?
         var placeholders: UInt64 { appPlaceholder + fallback }
+    }
+
+    /// Now on the clock the extension stamps frames with (CMClockGetHostTimeClock).
+    static func hostNow() -> Double {
+        CMClockGetTime(CMClockGetHostTimeClock()).seconds
     }
 
     /// `after - before`, or 0 if the counters went back (the camera extension restarted).
@@ -26,7 +36,8 @@ enum Probe {
 
     static func counters() -> Counters? {
         guard let source = snapshot()?.source else { return nil }
-        return Counters(live: source.sentLive, appPlaceholder: source.sentAppPlaceholder, fallback: source.sentFallback)
+        return Counters(live: source.sentLive, appPlaceholder: source.sentAppPlaceholder, fallback: source.sentFallback,
+                        lastLiveAt: source.lastLiveAt, liveSince: source.liveSince, lastPlaceholderAt: source.lastPlaceholderAt)
     }
 
     /// Clients currently streaming from OffSight Camera.

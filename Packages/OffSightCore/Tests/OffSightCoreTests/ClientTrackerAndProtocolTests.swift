@@ -83,6 +83,28 @@ final class ProtocolTests: XCTestCase {
         XCTAssertFalse(base.hasSameRouting(as: other))
     }
 
+    func testSourceStatsRecordsLiveRunsAndPlaceholders() {
+        var stats = SourceStats()
+        stats.recordSent(.fallback, now: 1.0)
+        stats.recordSent(.live, now: 2.0)
+        stats.recordSent(.live, now: 2.1)
+        XCTAssertEqual(stats.liveSince, 2.0)
+        XCTAssertEqual(stats.lastLiveAt, 2.1)
+        stats.recordSent(.appPlaceholder, now: 3.0)
+        stats.recordSent(.live, now: 4.0)
+        XCTAssertEqual(stats.liveSince, 4.0, "a placeholder ends the live run")
+        XCTAssertEqual(stats.lastPlaceholderAt, 3.0)
+        XCTAssertEqual([stats.sentLive, stats.sentAppPlaceholder, stats.sentFallback], [3, 1, 1])
+    }
+
+    func testSourceStatsDecodesWithoutTimestamps() throws {
+        let stats = try JSONDecoder().decode(SourceStats.self, from: Data(#"{"sentLive":5}"#.utf8))
+        XCTAssertEqual(stats.sentLive, 5)
+        XCTAssertNil(stats.lastLiveAt)
+        XCTAssertNil(stats.liveSince)
+        XCTAssertNil(stats.lastPlaceholderAt)
+    }
+
     func testFourCharCode() {
         XCTAssertEqual(fourCharCode("osnp"), 0x6F73_6E70)
         XCTAssertEqual(OffSightConstants.snapshotPropertyName, "4cc_osnp_glob_0000")

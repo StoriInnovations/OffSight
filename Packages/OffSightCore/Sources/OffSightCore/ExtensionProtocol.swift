@@ -85,6 +85,12 @@ public struct SourceStats: Codable, Equatable, Sendable {
     public var sentFallback: UInt64 = 0
     /// Frames from the sink that passed the gate while no app had the stream started.
     public var droppedNotStreaming: UInt64 = 0
+    /// Host-clock seconds (CMClockGetHostTimeClock) of the last live frame sent, and of the first
+    /// live frame in the current unbroken run of live frames; nil before any live frame.
+    public var lastLiveAt: Double?
+    public var liveSince: Double?
+    /// Host-clock seconds of the last placeholder frame sent (from the app or the extension's fallback).
+    public var lastPlaceholderAt: Double?
 
     public init() {}
 
@@ -97,7 +103,29 @@ public struct SourceStats: Codable, Equatable, Sendable {
         sentAppPlaceholder = try c.decodeIfPresent(UInt64.self, forKey: .sentAppPlaceholder) ?? 0
         sentFallback = try c.decodeIfPresent(UInt64.self, forKey: .sentFallback) ?? 0
         droppedNotStreaming = try c.decodeIfPresent(UInt64.self, forKey: .droppedNotStreaming) ?? 0
+        lastLiveAt = try c.decodeIfPresent(Double.self, forKey: .lastLiveAt)
+        liveSince = try c.decodeIfPresent(Double.self, forKey: .liveSince)
+        lastPlaceholderAt = try c.decodeIfPresent(Double.self, forKey: .lastPlaceholderAt)
     }
+
+    /// Records one frame handed to CoreMediaIO at host time `now`.
+    public mutating func recordSent(_ origin: FrameOrigin, now: Double) {
+        switch origin {
+        case .live:
+            let runContinues = lastLiveAt.map { $0 >= (lastPlaceholderAt ?? -.infinity) } ?? false
+            if !runContinues { liveSince = now }
+            sentLive += 1
+            lastLiveAt = now
+        case .appPlaceholder:
+            sentAppPlaceholder += 1
+            lastPlaceholderAt = now
+        case .fallback:
+            sentFallback += 1
+            lastPlaceholderAt = now
+        }
+    }
+
+    public enum FrameOrigin: Sendable { case live, appPlaceholder, fallback }
 }
 
 /// State the extension publishes through its read-only custom property.

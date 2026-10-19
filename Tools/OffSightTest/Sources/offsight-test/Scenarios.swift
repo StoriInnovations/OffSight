@@ -40,7 +40,7 @@ final class TestContext {
     /// Fast settings for the run; restored by `finish()`.
     func prepare() {
         if let state = app.state() {
-            savedSettings = (state.promptExpiry, state.gracePeriod)
+            if savedSettings == nil { savedSettings = (state.promptExpiry, state.gracePeriod) }
             app.run(.setGracePeriod(seconds: options.grace))
             app.run(.setPromptExpiry(seconds: 30))
         }
@@ -56,11 +56,19 @@ final class TestContext {
     }
 
     /// Waits until no app is using OffSight Camera and any earlier session's grace period is over,
-    /// so the next client starts a fresh session.
-    func waitForIdle() -> Bool {
-        guard Wait.until(15, { Probe.streamingClients().isEmpty }) != nil else { return false }
+    /// so the next client starts a fresh session. Returns why the check can't run, or nil when ready.
+    func waitForIdle() -> Outcome? {
+        guard Wait.until(15, { Probe.streamingClients().isEmpty }) != nil else {
+            return .skip("Another app is using OffSight Camera; close it and rerun.")
+        }
         Wait.sleep((app.latest?.gracePeriod ?? options.grace) + 0.8)
-        return app.waitFor(3) { $0.sessions.isEmpty } != nil
+        guard app.state() != nil else {
+            return .skip("OffSight isn't responding. Open /Applications/OffSight.app (Debug build) and rerun.")
+        }
+        guard app.waitFor(3, { $0.sessions.isEmpty }) != nil else {
+            return .skip("OffSight still shows a camera session; close apps using OffSight Camera and rerun.")
+        }
+        return nil
     }
 
     func newClient() -> CameraClient? { CameraClient(device: CameraClient.offSightCamera) }
@@ -103,7 +111,7 @@ enum Scenarios {
 
     static let placeholderByDefault = Scenario(id: "placeholder-default", title: "A new app gets the placeholder, never live video",
                                                requirements: "UR-01, UR-02, UR-03, UR-05") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera; close it and rerun.") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         let before = Probe.counters()
         client.start()
@@ -121,7 +129,7 @@ enum Scenarios {
 
     static let promptLatency = Scenario(id: "prompt-latency", title: "The prompt appears within 500 ms",
                                         requirements: "UR-06, NFR-09") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()
         let started = Date().timeIntervalSince1970
@@ -136,19 +144,22 @@ enum Scenarios {
 
     static let approveGoesLive = Scenario(id: "approve-live", title: "Go live sends live video without interrupting the stream",
                                           requirements: "UR-07, UR-13, NFR-07") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()
         defer { client.stop() }
         guard ctx.app.waitFor(5, { !$0.prompts.isEmpty }) != nil, let before = Probe.counters() else { return .fail("No prompt") }
         let sentAt = ProcessInfo.processInfo.systemUptime
+        let sentAtHost = Probe.hostNow()
         ctx.app.send(.approve(app: "*"))
         guard let elapsed = Wait.until(2, { (Probe.counters()?.live ?? 0) > before.live }) else {
             return .fail("No live frames within 2 s of approval")
         }
         Wait.sleep(1.5)
         let gap = client.maxGap(since: sentAt)
-        let metrics = [("first live frame after", String(format: "%.0f ms", elapsed * 1000)),
+        // The extension's own time for the first live frame; `elapsed` lags by up to one count push.
+        let firstLive = Probe.counters()?.liveSince.map { max(0, $0 - sentAtHost) } ?? elapsed
+        let metrics = [("first live frame after", String(format: "%.0f ms", firstLive * 1000)),
                        ("longest frame gap", String(format: "%.0f ms", gap * 1000))]
         if gap > 0.5 { return .fail("The stream stalled while switching to live", metrics) }
         return .pass("Live", metrics)
@@ -156,7 +167,7 @@ enum Scenarios {
 
     static let closeAllTiming = Scenario(id: "close-all", title: "Close all shutters takes effect within 250 ms",
                                          requirements: "UR-16, UR-17, UR-19") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()
         defer { client.stop() }
@@ -166,32 +177,36 @@ enum Scenarios {
             return .fail("Could not go live first")
         }
         Wait.sleep(1)
-        let sentAt = ProcessInfo.processInfo.systemUptime
-        ctx.app.send(.closeAllShutters)
-        // The last live frame goes out when the shutter has closed: wait until live stops for 150 ms.
-        var lastLive = Probe.counters()?.live ?? 0
-        var lastChange = ProcessInfo.processInfo.systemUptime
-        _ = Wait.until(2) {
-            let live = Probe.counters()?.live ?? lastLive
-            let now = ProcessInfo.processInfo.systemUptime
-            if live != lastLive { lastLive = live; lastChange = now }
-            return now - lastChange > 0.15
+        guard Probe.counters()?.lastLiveAt != nil else {
+            return .fail("OffSight Camera reports no frame times: install the current Debug build (scripts/dev-install.sh)")
         }
-        let latency = max(0, lastChange - sentAt)
-        let placeholderBefore = Probe.counters()?.placeholders ?? 0
+        let sentAt = ProcessInfo.processInfo.systemUptime
+        let sentAtHost = Probe.hostNow()
+        ctx.app.send(.closeAllShutters)
+        // Closed once placeholder frames go out after the last live frame. The extension stamps
+        // frames itself, so the latency doesn't depend on how often it pushes its counts.
+        var closed: Probe.Counters?
+        _ = Wait.until(2) {
+            guard let counters = Probe.counters(), let placeholderAt = counters.lastPlaceholderAt,
+                  placeholderAt > sentAtHost, placeholderAt > (counters.lastLiveAt ?? 0) else { return false }
+            closed = counters
+            return true
+        }
+        guard let closed else { return .fail("No placeholder frames after closing") }
+        let latency = max(0, (closed.lastLiveAt ?? sentAtHost) - sentAtHost)
         Wait.sleep(0.5)
-        let placeholdersFlow = (Probe.counters()?.placeholders ?? 0) > placeholderBefore
+        let liveAfterClosing = Probe.delta(Probe.counters()?.live ?? closed.live, closed.live)
         let gap = client.maxGap(since: sentAt)
         let metrics = [("shutter closed after", String(format: "%.0f ms", latency * 1000)),
                        ("longest frame gap", String(format: "%.0f ms", gap * 1000))]
-        if !placeholdersFlow { return .fail("No placeholder frames after closing", metrics) }
+        if liveAfterClosing > 0 { return .fail("Live frames went out after the shutter closed", metrics) }
         if gap > 0.5 { return .fail("The stream stalled (the meeting could drop)", metrics) }
         return latency <= 0.25 ? .pass("Closed", metrics) : .fail("Took longer than 250 ms", metrics)
     }
 
     static let steadyFrames = Scenario(id: "steady-frames", title: "Steady frame rate and one size, placeholder and live",
                                        requirements: "UR-05, UR-28") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient(), let format = Probe.snapshot()?.activeFormat else { return .fail("Could not open OffSight Camera") }
         client.start()
         defer { client.stop() }
@@ -212,7 +227,7 @@ enum Scenarios {
 
     static let restartWhilePending = Scenario(id: "restart-pending", title: "An unanswered app that restarts its camera is asked again",
                                               requirements: "R2, bug B1 (Photo Booth)") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()
         guard ctx.app.waitFor(5, { !$0.prompts.isEmpty }) != nil else { client.stop(); return .fail("No first prompt") }
@@ -228,7 +243,7 @@ enum Scenarios {
 
     static let restartWithinGraceKeepsApproval = Scenario(id: "grace-keeps-live", title: "A quick camera restart keeps the approval",
                                                           requirements: "UR-12") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()
         guard ctx.app.waitFor(5, { !$0.prompts.isEmpty }) != nil else { client.stop(); return .fail("No prompt") }
@@ -246,7 +261,7 @@ enum Scenarios {
 
     static let sessionEndAsksAgain = Scenario(id: "session-end", title: "After the session ends, the next one asks again",
                                               requirements: "UR-11, UR-40") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()
         guard ctx.app.waitFor(5, { !$0.prompts.isEmpty }) != nil else { client.stop(); return .fail("No prompt") }
@@ -269,7 +284,7 @@ enum Scenarios {
 
     static let keepThenGoLive = Scenario(id: "keep-then-live", title: "Keep placeholder, then go live later from the menu",
                                          requirements: "UR-09, UR-13") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()
         defer { client.stop() }
@@ -288,7 +303,7 @@ enum Scenarios {
 
     static let promptExpiry = Scenario(id: "prompt-expiry", title: "An unanswered prompt expires into the placeholder",
                                        requirements: "UR-09, UR-09a") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         ctx.app.run(.setPromptExpiry(seconds: 5))
         defer { ctx.app.run(.setPromptExpiry(seconds: 30)) }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
@@ -306,7 +321,7 @@ enum Scenarios {
 
     static let pause = Scenario(id: "pause", title: "Pause gives live video without prompts; resuming asks again",
                                 requirements: "UR-41") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         ctx.app.run(.pause(minutes: 1))
         defer { ctx.app.run(.resume) }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
@@ -326,7 +341,7 @@ enum Scenarios {
 
     static let bypassDetection = Scenario(id: "bypass", title: "An app using the real camera directly shows as unprotected",
                                           requirements: "UR-35, UR-35a") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = CameraClient(device: CameraClient.physicalCamera) else { return .skip("No built-in camera") }
         client.start()
         guard ctx.app.waitFor(5, { $0.protectionState == "unprotected" }) != nil else {
@@ -342,7 +357,7 @@ enum Scenarios {
 
     static let failClosed = Scenario(id: "fail-closed", title: "If OffSight quits unexpectedly, apps get the placeholder",
                                      requirements: "UR-04, NFR-11") { ctx in
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         guard let client = ctx.newClient() else { return .fail("Could not open OffSight Camera") }
         client.start()
         defer { client.stop() }
@@ -356,15 +371,20 @@ enum Scenarios {
         kill(running.processIdentifier, SIGKILL)
         var metrics: [(String, String)] = []
         // Live frames must stop and the extension's own placeholder take over.
-        guard let base = Probe.counters() else { return .fail("Camera counters unavailable") }
-        guard let fallbackAfter = Wait.until(2, { (Probe.counters()?.fallback ?? 0) > base.fallback }) else {
-            return .fail("The extension did not fall back to its placeholder")
+        func fallbackFailure() -> String? {
+            guard let base = Probe.counters() else { return "Camera counters unavailable" }
+            guard let fallbackAfter = Wait.until(2, { (Probe.counters()?.fallback ?? 0) > base.fallback }) else {
+                return "The extension did not fall back to its placeholder"
+            }
+            let liveBefore = Probe.counters()?.live ?? 0
+            Wait.sleep(1)
+            if (Probe.counters()?.live ?? 0) > liveBefore { return "Live frames continued after OffSight died" }
+            metrics.append(("fallback placeholder after", String(format: "%.0f ms", fallbackAfter * 1000)))
+            metrics.append(("longest frame gap", String(format: "%.0f ms", client.maxGap(since: killedAt) * 1000)))
+            return nil
         }
-        let liveBefore = Probe.counters()?.live ?? 0
-        Wait.sleep(1)
-        if (Probe.counters()?.live ?? 0) > liveBefore { return .fail("Live frames continued after OffSight died") }
-        metrics.append(("fallback placeholder after", String(format: "%.0f ms", fallbackAfter * 1000)))
-        metrics.append(("longest frame gap", String(format: "%.0f ms", client.maxGap(since: killedAt) * 1000)))
+        let failure = fallbackFailure()
+        // Bring OffSight back whatever happened above, so the checks after this one can run.
         // NFR-11: with launch at login on, launchd restarts OffSight.
         let relaunched = Wait.until(20, {
             NSRunningApplication.runningApplications(withBundleIdentifier: "com.storiinnovations.offsight").contains { !$0.isTerminated }
@@ -375,9 +395,12 @@ enum Scenarios {
             NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
             metrics.append(("relaunched", "manually (launch at login is off, so no automatic restart)"))
         }
-        guard ctx.app.waitFor(20, { $0.extensionConnected }) != nil else { return .fail("OffSight did not come back", metrics) }
-        if let state = ctx.app.state(), state.live { return .fail("Came back live without a new approval", metrics) }
+        guard ctx.app.waitFor(20, { $0.extensionConnected }) != nil else {
+            return .fail([failure, "OffSight did not come back"].compactMap { $0 }.joined(separator: "; "), metrics)
+        }
         ctx.prepare()
+        if let failure { return .fail(failure, metrics) }
+        if let state = ctx.app.state(), state.live { return .fail("Came back live without a new approval", metrics) }
         return .pass("Failed closed and recovered", metrics)
     }
 
@@ -388,7 +411,7 @@ enum Scenarios {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.PhotoBooth") else {
             return .skip("Photo Booth not installed")
         }
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         var app: NSRunningApplication?
@@ -417,7 +440,7 @@ enum Scenarios {
         guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.QuickTimePlayerX") != nil else {
             return .skip("QuickTime Player not installed")
         }
-        guard ctx.waitForIdle() else { return .skip("Another app is using OffSight Camera") }
+        if let notReady = ctx.waitForIdle() { return notReady }
         let open = """
         tell application "QuickTime Player"
             activate

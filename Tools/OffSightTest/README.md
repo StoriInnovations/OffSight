@@ -58,7 +58,9 @@ the meeting app shows.
 
 ## How it talks to OffSight
 
-- **Camera counters:** read from OffSight Camera through CoreMediaIO (works with any build).
+- **Camera counters:** read from OffSight Camera through CoreMediaIO (works with any build). Readers
+  see the counts as the extension last pushed them, about every 250 ms while frames flow, so timings
+  such as close-all come from the extension's own frame timestamps instead.
 - **Commands and state:** distributed notifications to the Debug build's test hook
   (`TestHook` in OffSightCore). Commands: approve, keep placeholder, close all, pause, resume,
   prompt expiry, grace period.
