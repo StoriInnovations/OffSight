@@ -19,6 +19,9 @@ enum AppDefaults {
     // Approvals
     static let promptExpiryKey = "promptExpirySeconds"
     static let gracePeriodKey = "gracePeriodSeconds"
+    /// Opt-in (UR-34a): ask browsers for the meeting website. Off by default, because macOS then
+    /// asks whether OffSight may control each browser, and that dialog alarms people.
+    static let showBrowserSiteKey = "showBrowserSite"
 
     // Shortcuts
     static let panicShortcutKey = "panicShortcut"
@@ -31,6 +34,7 @@ enum AppDefaults {
             liveCameraIDKey: "",
             promptExpiryKey: PolicySettings.defaultPromptExpiry,
             gracePeriodKey: PolicySettings.defaultGracePeriod,
+            showBrowserSiteKey: false,
             panicShortcutKey: KeyboardShortcut.defaultPanic.storageString,
         ])
     }
@@ -44,6 +48,11 @@ enum AppDefaults {
 
     static var notificationsEnabled: Bool {
         UserDefaults.standard.bool(forKey: notificationsEnabledKey)
+    }
+
+    /// True only where the build supports it and the user turned it on.
+    static var showBrowserSite: Bool {
+        BrowserContext.isAvailable && UserDefaults.standard.bool(forKey: showBrowserSiteKey)
     }
 
     static var liveCameraID: String? {

@@ -153,6 +153,7 @@ private struct CameraTab: View {
 private struct ApprovalsTab: View {
     @AppStorage(AppDefaults.promptExpiryKey) private var promptExpiry = PolicySettings.defaultPromptExpiry
     @AppStorage(AppDefaults.gracePeriodKey) private var gracePeriod = PolicySettings.defaultGracePeriod
+    @AppStorage(AppDefaults.showBrowserSiteKey) private var showBrowserSite = false
 
     var body: some View {
         Form {
@@ -167,6 +168,12 @@ private struct ApprovalsTab: View {
                     Text("Grace period \(Self.duration(gracePeriod))")
                 }
                 Note("If an app stops and restarts its camera within this time (switching cameras, a short reconnect), it keeps its approval and isn't asked again.")
+            }
+            if BrowserContext.isAvailable {
+                Section {
+                    Toggle("Show the website for browser meetings", isOn: $showBrowserSite)
+                    Note("The prompt then names the site in the browser's front tab, for example meet.google.com, instead of just the browser. macOS asks once per browser whether OffSight may control it: choose Allow, or OffSight shows the browser name. Only the site name is read, on your Mac. Best effort: the site can be wrong if the meeting isn't in the front tab, and Firefox isn't supported.")
+                }
             }
             Section {
                 Note("Every app asks again in every new camera session. There is deliberately no \"always allow\".")
