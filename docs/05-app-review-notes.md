@@ -33,9 +33,9 @@ Installing a TestFlight build replaces the copy in /Applications, including a De
 | Name | OffSight |
 | Subtitle (30 chars max) | A camera shutter, in software |
 | Category | Utilities |
-| Privacy Policy URL | `https://storiinnovations.github.io/offsight/privacy.html` (or the custom domain) |
-| Support URL | `https://storiinnovations.github.io/offsight/support.html` |
-| Marketing URL | `https://storiinnovations.github.io/offsight/` |
+| Privacy Policy URL | `https://storiinnovations.github.io/OffSight/privacy.html` (or the custom domain) |
+| Support URL | `https://storiinnovations.github.io/OffSight/support.html` |
+| Marketing URL | `https://storiinnovations.github.io/OffSight/` |
 | App Privacy | **Data Not Collected** |
 | Age rating | 4+ (no objectionable content) |
 | Encryption | Not used (`ITSAppUsesNonExemptEncryption` = NO in Info.plist) |
