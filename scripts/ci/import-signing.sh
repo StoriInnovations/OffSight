@@ -25,7 +25,10 @@ while true; do
   n=$((n + 1))
 done
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
-echo "Imported $((n - 1)) certificate(s)"
+echo "Imported $((n - 1)) certificate(s). Signing identities (certificate + private key) in the keychain:"
+# Certificate names and fingerprints are not secret. A certificate imported without its private key
+# is not listed; one macOS can't trust (e.g. missing Apple intermediate) is listed with the reason.
+security find-identity "$KEYCHAIN"
 
 for dir in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
   mkdir -p "$dir"
