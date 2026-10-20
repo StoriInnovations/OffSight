@@ -32,8 +32,12 @@ EXPORT_OPTIONS=packaging/ExportOptions-AppStore.plist
 if [[ -n "${OFFSIGHT_APP_PROFILE:-}" && -n "${OFFSIGHT_EXT_PROFILE:-}" ]]; then
   TEAM_ID=$(sed -n 's/^TEAM_ID *= *//p' Config/Signing.xcconfig)
   # The upload is a .pkg signed with the Mac Installer Distribution identity (named "3rd Party Mac
-  # Developer Installer: …" in the keychain). Check before the long archive step.
-  if ! security find-identity -v | grep -qE '"(3rd Party Mac Developer Installer|Mac Installer Distribution): .*\('"$TEAM_ID"'\)"'; then
+  # Developer Installer: …" in the keychain). Find it before the long archive step, and name it in
+  # the export options by its SHA-1 so Xcode can't miss it under either name.
+  INSTALLER_IDENTITY=$(security find-identity -v \
+    | grep -E '"(3rd Party Mac Developer Installer|Mac Installer Distribution): .*\('"$TEAM_ID"'\)"' \
+    | head -1 | awk '{print $2}')
+  if [[ -z "$INSTALLER_IDENTITY" ]]; then
     echo "No Mac Installer Distribution identity for team $TEAM_ID in the keychain." >&2
     echo "In CI: MAC_INSTALLER_CERT_P12_BASE64 must hold that certificate exported with its private key (docs/03 step 4)." >&2
     echo "The identities found are listed by the \"Import signing material\" step." >&2
@@ -52,7 +56,7 @@ if [[ -n "${OFFSIGHT_APP_PROFILE:-}" && -n "${OFFSIGHT_EXT_PROFILE:-}" ]]; then
   <key>teamID</key><string>$TEAM_ID</string>
   <key>signingStyle</key><string>manual</string>
   <key>signingCertificate</key><string>Apple Distribution</string>
-  <key>installerSigningCertificate</key><string>Mac Installer Distribution</string>
+  <key>installerSigningCertificate</key><string>$INSTALLER_IDENTITY</string>
   <key>provisioningProfiles</key><dict>
     <key>com.storiinnovations.offsight</key><string>$OFFSIGHT_APP_PROFILE</string>
     <key>com.storiinnovations.offsight.camera-extension</key><string>$OFFSIGHT_EXT_PROFILE</string>
