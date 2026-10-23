@@ -9,6 +9,10 @@ import os
 final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// Called on the capture queue for every frame.
     var onFrame: ((CVPixelBuffer) -> Void)?
+    /// Called (on any thread) with the new size when the camera's mode changes, e.g. because macOS
+    /// reconfigured it for another app mid-call. Diagnostics only.
+    var onModeChange: ((Dimensions) -> Void)?
+    private var modeObservation: NSKeyValueObservation?
     let session = AVCaptureSession()
     private(set) var deviceName: String?
     /// The physical camera in use, once configured.
@@ -199,6 +203,12 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     log.error("Could not select the native camera mode: \(error.localizedDescription, privacy: .public)")
                 }
             }
+            modeObservation = device.observe(\.activeFormat, options: [.new]) { [weak self] device, _ in
+                let size = CMVideoFormatDescriptionGetDimensions(device.activeFormat.formatDescription)
+                let mode = Dimensions(width: Int(size.width), height: Int(size.height))
+                self?.log.notice("Camera mode changed to \(mode.description, privacy: .public)")
+                self?.onModeChange?(mode)
+            }
             deviceName = device.localizedName
             self.device = device
             isConfigured = true
@@ -214,9 +224,13 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         guard let size else {
             return [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
         }
+        // Aspect fill, as Chromium's macOS capturer does: if the camera's mode has another shape
+        // (macOS can change it mid-call), the output crops instead of stretching. With no scaling
+        // mode set the shape was left to the system default.
         return [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
                 kCVPixelBufferWidthKey as String: size.width,
-                kCVPixelBufferHeightKey as String: size.height]
+                kCVPixelBufferHeightKey as String: size.height,
+                AVVideoScalingModeKey: AVVideoScalingModeResizeAspectFill]
     }
 
     /// Asks the capture output for BGRA frames at `size`, OffSight Camera's format, so live frames
@@ -250,6 +264,7 @@ final class CameraCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         isRunning = false
         isConfigured = false
         dataOutput = nil
+        modeObservation = nil
         deviceName = nil
         device = nil
         nativeFormat = selectDevice().flatMap { Self.nativeMode(of: $0) }.map { $0.dimensions }

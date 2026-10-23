@@ -115,6 +115,25 @@ final class FrameGateTests: XCTestCase {
         XCTAssertFalse(OffSightConstants.isAcceptableFormat(Dimensions(width: 1921, height: 1080)))
     }
 
+    func testAspectFillCropNeverChangesShape() {
+        let offSightCamera = Dimensions(width: 2560, height: 1440)
+        func crop(_ width: Int, _ height: Int, to target: Dimensions = offSightCamera) -> [Int] {
+            let rect = Dimensions(width: width, height: height).aspectFillCrop(to: target)
+            return [rect.x, rect.y, rect.width, rect.height]
+        }
+        // The MacBook Pro camera's modes (2026-10-23) into OffSight Camera's 16:9.
+        XCTAssertEqual(crop(1920, 1080), [0, 0, 1920, 1080], "same shape: whole frame")
+        XCTAssertEqual(crop(1280, 720), [0, 0, 1280, 720])
+        XCTAssertEqual(crop(1760, 1328), [0, 169, 1760, 990], "almost 4:3: trim top and bottom")
+        XCTAssertEqual(crop(640, 480), [0, 60, 640, 360])
+        XCTAssertEqual(crop(1552, 1552), [0, 339, 1552, 873], "square Center Stage mode")
+        XCTAssertEqual(crop(1080, 1920), [0, 656, 1080, 608], "portrait")
+        // Wider than the target: trim left and right.
+        XCTAssertEqual(crop(2560, 1440, to: Dimensions(width: 1920, height: 1440)), [320, 0, 1920, 1440])
+        // Degenerate sizes are returned unchanged rather than crashing.
+        XCTAssertEqual(crop(0, 0), [0, 0, 0, 0])
+    }
+
     func testEffectsFreeFormat() {
         func free(_ width: Int, _ height: Int) -> Dimensions {
             OffSightConstants.effectsFreeFormat(for: Dimensions(width: width, height: height))

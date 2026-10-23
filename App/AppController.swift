@@ -72,6 +72,12 @@ final class AppController: StatusMenuActions {
         #endif
 
         capture.onFrame = { [weak self] frame in self?.feeder.handle(frame) }
+        capture.onModeChange = { [weak self] mode in
+            DispatchQueue.main.async { self?.note("camera mode: \(mode)") }
+        }
+        feeder.onCameraFrameChange = { [weak self] frame in
+            DispatchQueue.main.async { self?.note("live camera frames: \(frame)") }
+        }
         prompts.model.onApprove = { [weak self] app in self?.goLive(app) }
         prompts.model.onKeepPlaceholder = { [weak self] app in
             self?.engine.keepPlaceholder(app)
