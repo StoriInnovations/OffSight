@@ -16,7 +16,7 @@ public struct SetupFacts: Equatable, Sendable {
     public var awaitingApproval = false
     /// The install failed because this app isn't in the Applications folder.
     public var installFailedOutsideApplications = false
-    /// Where this app is, for "Show in Finder".
+    /// Where this app runs from. Live video works only from `OffSightConstants.installedAppPath`.
     public var appPath = ""
     /// Every camera extension build macOS lists, including old ones waiting to be removed; nil
     /// until macOS has answered.
@@ -26,6 +26,9 @@ public struct SetupFacts: Equatable, Sendable {
     public var cameraAccess: CameraAccess = .allowed
     /// Other copies of OffSight.app on this Mac.
     public var otherCopies: [String] = []
+    /// The extension's sink authentication result while it refuses this app's live video; nil
+    /// when it accepted it or hasn't been asked.
+    public var sinkRefused: String?
 
     public init(extensionStatus: ExtensionVersionStatus) {
         self.extensionStatus = extensionStatus
@@ -36,7 +39,7 @@ public struct SetupFacts: Equatable, Sendable {
 /// setup guide; recommended ones are only listed in it.
 public struct SetupIssue: Equatable, Sendable, Identifiable {
     public enum Kind: String, Sendable {
-        case moveToApplications, allowExtension, restart, installExtension, cameraAccess, otherCopies
+        case moveToApplications, allowExtension, restart, installExtension, liveVideoRefused, cameraAccess, otherCopies
     }
 
     public enum Action: Equatable, Sendable {
@@ -66,8 +69,9 @@ public struct SetupIssue: Equatable, Sendable, Identifiable {
 }
 
 /// Works out which setup steps are missing (UR-37), so the setup guide can reopen on exactly
-/// those after the first run: the camera extension not installed, not allowed, not started or
-/// replaced but still waiting for a restart, and camera access.
+/// those after the first run: OffSight not at /Applications/OffSight.app, the camera extension
+/// not installed, not allowed, not started, replaced but still waiting for a restart, or refusing
+/// OffSight's live video, and camera access.
 public enum SetupCheck {
     public static let restartHow = "Save your work, then choose Apple menu › Restart."
 
@@ -111,6 +115,13 @@ public enum SetupCheck {
                               detail: "macOS installs OffSight Camera only from an app in the Applications folder. Quit OffSight, move it to Applications, then open it from there.",
                               actions: facts.appPath.isEmpty ? [] : [.showInFinder(path: facts.appPath)])
         }
+        if !facts.appPath.isEmpty, facts.appPath != OffSightConstants.installedAppPath {
+            // OffSight Camera accepts live video only from there (decision A7), so going live
+            // would silently keep the placeholder.
+            return SetupIssue(kind: .moveToApplications, required: true, title: "Move OffSight to Applications",
+                              detail: "This OffSight runs from \(facts.appPath). OffSight Camera accepts live video only from \(OffSightConstants.installedAppPath), so meeting apps keep the placeholder even after you go live. Quit OffSight. If another copy is at \(OffSightConstants.installedAppPath), move that one to the Trash. Then put this copy there, named OffSight.app (or install it again from the App Store or TestFlight), and open it from there.",
+                              actions: [.showInFinder(path: facts.appPath)])
+        }
         if facts.awaitingApproval || facts.extensionStatus == .awaitingApproval {
             return SetupIssue(kind: .allowExtension, required: true, title: "Allow OffSight Camera",
                               detail: "macOS waits for you to allow the camera OffSight adds. On macOS 15 or later: System Settings › General › Login Items & Extensions › Camera Extensions, then turn on OffSight. On macOS 13 or 14: System Settings › Privacy & Security, then Allow.",
@@ -122,6 +133,11 @@ public enum SetupCheck {
         }
         switch facts.extensionStatus {
         case .current:
+            if let refused = facts.sinkRefused {
+                return SetupIssue(kind: .liveVideoRefused, required: true, title: "Live video can't reach OffSight Camera",
+                                  detail: "OffSight Camera refused this app's video (\(refused)), so meeting apps keep the placeholder even after you go live. Quit any other copy of OffSight, then restart the Mac. If it keeps happening, send Copy Diagnostics from Settings › Advanced.",
+                                  actions: [])
+            }
             guard buildCount(facts) > 1 else { return nil }
             return SetupIssue(kind: .restart, required: false, title: "Restart your Mac when convenient",
                               detail: "macOS keeps \(buildCount(facts) - 1) older build(s) of OffSight Camera until the next restart. OffSight works meanwhile. \(restartHow)",

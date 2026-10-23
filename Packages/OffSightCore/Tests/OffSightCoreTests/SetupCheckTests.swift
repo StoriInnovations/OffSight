@@ -50,6 +50,26 @@ final class SetupCheckTests: XCTestCase {
         XCTAssertEqual(issues[0].actions, [.showInFinder(path: "/Users/me/Downloads/OffSight.app")])
     }
 
+    func testLiveVideoNeedsTheInstalledPath() {
+        XCTAssertEqual(kinds(facts(.current) { $0.appPath = OffSightConstants.installedAppPath }), [])
+        let elsewhere = SetupCheck.issues(for: facts(.current) { $0.appPath = "/Applications/OffSight 2.app" })
+        XCTAssertEqual(elsewhere.map(\.kind), [.moveToApplications])
+        XCTAssertEqual(elsewhere[0].required, true)
+        XCTAssertTrue(elsewhere[0].detail.contains("/Applications/OffSight 2.app"))
+        XCTAssertEqual(elsewhere[0].actions, [.showInFinder(path: "/Applications/OffSight 2.app")])
+    }
+
+    func testRefusedLiveVideo() {
+        let refused = SetupCheck.issues(for: facts(.current) {
+            $0.appPath = OffSightConstants.installedAppPath
+            $0.sinkRefused = "codesign-unavailable(client=/x)"
+        })
+        XCTAssertEqual(refused.map(\.kind), [.liveVideoRefused])
+        XCTAssertTrue(refused[0].detail.contains("client=/x"))
+        // Only reported once the extension runs this app's build; before that, other steps come first.
+        XCTAssertEqual(kinds(facts(.installedNotStarted) { $0.sinkRefused = "x" }), ["restart"])
+    }
+
     func testRestartCases() {
         XCTAssertEqual(kinds(facts(.installedNotStarted)), ["restart"])
         XCTAssertEqual(kinds(facts(.different(running: BuildVersion(short: "0.1.0", build: "1")))), ["restart"])
