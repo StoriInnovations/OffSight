@@ -73,6 +73,5 @@ looks like faces made wider.
    (the camera's 4:3 shape) and switch the camera to follow the app's choice; several apps share
    one stream and one camera, so cropping would still be needed.
 
-Verify on device: a Teams call while another app opens the built-in camera or Center Stage is
-toggled; diagnostics should show the mode change and live video should stay undistorted. Also
-re-check B2 (Background effect reaches meeting apps), since the capture output's settings changed.
+Verified on device (2026-10-23): live video stays undistorted in Teams and Google Meet, and B2
+(Background effect reaches meeting apps) still works with the new capture output settings.
