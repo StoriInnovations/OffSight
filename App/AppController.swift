@@ -26,11 +26,9 @@ final class AppController: StatusMenuActions {
     private var lastPolicySummary = ""
     /// Website of each browser session (UR-34a), per session start; nil while unknown.
     private var browserSites: [AppKey: (sessionStart: Date, host: String?)] = [:]
-    private var notRunningSince: Date?
     #if DEBUG
     private var lastPublishedProtection: ProtectionState?
     #endif
-    private var restartNoticeShown = false
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss.SSS"
@@ -59,6 +57,18 @@ final class AppController: StatusMenuActions {
         SettingsView(model: settingsModel)
     }
     private let onboarding = OnboardingWindowController()
+    /// Required setup steps missing, and since when (UR-37).
+    private var setupMissing: (kinds: Set<SetupIssue.Kind>, since: Date)?
+    /// Kinds of missing step the checklist already opened for by itself during this launch.
+    private var setupShownKinds: Set<SetupIssue.Kind> = []
+    private var setupGuideLastVisible = Date.distantPast
+    private var lastCameraScan = Date.distantPast
+    private var lastCopiesScan = Date.distantPast
+    private var offSightCameraCount = 0
+    private var otherAppCopies: [String] = []
+    /// How long a step must stay missing before the menu lists it and the checklist opens, so an
+    /// install, approval or restart in progress doesn't flash it.
+    private static let setupGrace: TimeInterval = 30
     private let aboutModel = AboutModel()
     private lazy var aboutWindow = HostedWindowController(title: "About OffSight") { [aboutModel] in AboutView(model: aboutModel) }
 
@@ -154,6 +164,8 @@ final class AppController: StatusMenuActions {
 
     func showOnboarding() { onboarding.show() }
 
+    func openSetupChecklist() { onboarding.showChecklist() }
+
     // MARK: Settings
 
     private func wireSettings() {
@@ -164,6 +176,7 @@ final class AppController: StatusMenuActions {
         settingsModel.openCameraPrivacySettings = { [weak self] in self?.openCameraPrivacySettings() }
         settingsModel.copyDiagnostics = { [weak self] in self?.copyDiagnostics() }
         settingsModel.showOnboarding = { [weak self] in self?.showOnboarding() }
+        settingsModel.showSetupChecklist = { [weak self] in self?.openSetupChecklist() }
 
         shortcuts.onAction = { [weak self] action in
             guard let self else { return }
@@ -219,20 +232,84 @@ final class AppController: StatusMenuActions {
         }
     }
 
-    /// After an update, macOS sometimes keeps the new camera extension stopped until a restart.
-    /// Say so once, 20 s after it is first seen installed but not running.
-    private func checkExtensionRunning() {
-        guard installer.state == .activated, !link.isConnected else {
-            notRunningSince = nil
-            return
+    // MARK: Setup check
+
+    private var setupFacts: SetupFacts {
+        var facts = SetupFacts(extensionStatus: extensionVersionStatus)
+        facts.installing = installer.state == .activating || installer.state == .unknown
+        facts.installCompletesAfterRestart = installer.state == .willCompleteAfterReboot
+        facts.awaitingApproval = installer.state == .needsUserApproval
+        facts.installFailedOutsideApplications = installer.failedOutsideApplications
+        facts.appPath = Bundle.main.bundlePath
+        facts.installed = installer.installedExtensions
+        facts.offSightCameras = offSightCameraCount
+        switch CameraCapture.authorizationStatus {
+        case .authorized: facts.cameraAccess = .allowed
+        case .notDetermined: facts.cameraAccess = .notAsked
+        default: facts.cameraAccess = .denied
         }
-        let since = notRunningSince ?? Date()
-        notRunningSince = since
-        guard !restartNoticeShown, Date().timeIntervalSince(since) > 20 else { return }
-        restartNoticeShown = true
-        log.notice("Camera extension installed but not running; suggesting a restart")
-        notifier.notice(title: "Restart to finish setting up OffSight Camera",
-                        body: "macOS installed the camera extension but hasn't started it. Restart your Mac; meeting apps keep the placeholder until then.")
+        facts.otherCopies = otherAppCopies
+        return facts
+    }
+
+    /// Keeps the list of missing setup steps current. After the first run, once a required step has
+    /// stayed missing for `setupGrace` (and the guide has been closed that long), the checklist
+    /// opens by itself, once per launch for each kind of step. This also covers a camera extension
+    /// that macOS installed or replaced but won't start until the Mac restarts.
+    private func updateSetupCheck() {
+        let now = Date()
+        if now.timeIntervalSince(lastCameraScan) > 2 {
+            lastCameraScan = now
+            // Two at once means an older build is still loaded next to the new one.
+            offSightCameraCount = CMIO.devices().filter { CMIO.name(of: $0) == OffSightConstants.deviceName }.count
+        }
+        if now.timeIntervalSince(lastCopiesScan) > 60 {
+            lastCopiesScan = now
+            otherAppCopies = Self.otherCopiesOfThisApp()
+        }
+        let issues = SetupCheck.issues(for: setupFacts)
+        let model = onboarding.model
+        if model.issues != issues {
+            model.issues = issues
+            let text = issues.isEmpty ? "complete" : issues.map { "\($0.kind.rawValue)\($0.required ? "" : " (recommended)")" }.joined(separator: ", ")
+            note("setup: \(text)")
+            log.info("Setup: \(text, privacy: .public)")
+        }
+
+        let kinds = Set(issues.filter(\.required).map(\.kind))
+        if kinds.isEmpty {
+            setupMissing = nil
+        } else if setupMissing?.kinds != kinds {
+            setupMissing = (kinds, now)
+        }
+        if onboarding.isVisible { setupGuideLastVisible = now }
+        guard let missing = setupMissing, now.timeIntervalSince(missing.since) >= Self.setupGrace,
+              now.timeIntervalSince(setupGuideLastVisible) >= Self.setupGrace,
+              UserDefaults.standard.bool(forKey: AppDefaults.onboardingCompletedKey),
+              !missing.kinds.isSubset(of: setupShownKinds) else { return }
+        setupShownKinds.formUnion(missing.kinds)
+        log.notice("Setup incomplete; showing what's missing")
+        onboarding.showChecklist(activate: false)
+    }
+
+    /// Titles of the required setup steps that have stayed missing, for the menu.
+    private var settledSetupSteps: [String] {
+        guard let missing = setupMissing, Date().timeIntervalSince(missing.since) >= Self.setupGrace else { return [] }
+        return onboarding.model.requiredIssues.map(\.title)
+    }
+
+    /// Other copies of OffSight.app that Launch Services knows about. Each would install its own
+    /// camera extension build if opened. Leaves out the Trash and Xcode's build folders (a
+    /// developer's own builds); paths the app can't see (sandbox) are left out too.
+    private static func otherCopiesOfThisApp() -> [String] {
+        guard let bundleID = Bundle.main.bundleIdentifier else { return [] }
+        let mine = Bundle.main.bundleURL.resolvingSymlinksInPath().path
+        return NSWorkspace.shared.urlsForApplications(withBundleIdentifier: bundleID)
+            .map { $0.resolvingSymlinksInPath().path }
+            .filter { path in
+                path != mine && !path.contains("/.Trash/") && !path.contains("/DerivedData/")
+                    && !path.contains(".xcarchive/") && FileManager.default.fileExists(atPath: path)
+            }
     }
 
     /// Which camera extension build macOS is running, against the one this app carries.
@@ -351,7 +428,6 @@ final class AppController: StatusMenuActions {
         menu.camerasBypassed = bypass.camerasInUse
         menu.bypassSuspects = bypass.bypassDetected ? bypassSuspects() : []
         menu.pausedUntil = engine.pausedUntil
-        checkExtensionRunning()
         if link.isConnected {
             menu.extensionStatus = "Connected"
         } else if installer.state == .activated {
@@ -363,8 +439,10 @@ final class AppController: StatusMenuActions {
         }
         menu.extensionNeedsApproval = installer.state == .needsUserApproval
         menu.cameraAccessDenied = CameraCapture.authorizationStatus == .denied
-        statusItem?.update(menu)
         updateExtensionVersion()
+        updateSetupCheck()
+        menu.setupSteps = settledSetupSteps
+        statusItem?.update(menu)
         if settingsModel.extensionStatus != menu.extensionStatus {
             settingsModel.extensionStatus = menu.extensionStatus
         }
@@ -487,6 +565,7 @@ final class AppController: StatusMenuActions {
             captureDevice: capture.deviceName,
             nativeFormat: capture.nativeFormat,
             extensionVersion: extensionVersionStatus.summary(bundled: installer.bundledVersion),
+            setupIssues: onboarding.model.issues,
             captureMode: capture.activeModeDescription.map { "\($0); active now: \(capture.activeEffectsDescription)" },
             timeline: timeline,
             feeder: feeder,

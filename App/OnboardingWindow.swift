@@ -4,8 +4,8 @@ import OffSightCore
 import SwiftUI
 import UserNotifications
 
-/// State and actions for the first-run guide (UR-36, UR-37, UR-38). AppController keeps the
-/// extension status current while the window is open.
+/// State and actions for the first-run guide (UR-36, UR-37, UR-38) and its checklist of setup
+/// steps still missing. AppController keeps the extension status and `issues` current.
 final class OnboardingModel: ObservableObject {
     enum Step: Int, CaseIterable {
         case welcome, cameraExtension, cameraAccess, notifications, meetingApps, finish
@@ -19,10 +19,31 @@ final class OnboardingModel: ObservableObject {
     @Published private(set) var notificationsAllowed: Bool?
     @Published var launchAtLogin = true
     @Published private(set) var meetingApps: [MeetingAppGuide] = []
+    /// Setup steps still missing, from `SetupCheck`.
+    @Published var issues: [SetupIssue] = []
+    /// Showing only the checklist of missing steps, not the step-by-step guide.
+    @Published var checklist = false
 
     var installExtension: () -> Void = {}
     var openExtensionApproval: () -> Void = {}
     var finished: (_ launchAtLogin: Bool) -> Void = { _ in }
+    var close: () -> Void = {}
+    var showFullGuide: () -> Void = {}
+
+    var requiredIssues: [SetupIssue] { issues.filter(\.required) }
+    /// The camera extension step still missing, if any.
+    var extensionIssue: SetupIssue? { issues.first { $0.required && $0.concernsCameraExtension } }
+    var cameraIssue: SetupIssue? { issues.first { $0.kind == .cameraAccess } }
+
+    func perform(_ action: SetupIssue.Action) {
+        switch action {
+        case .openExtensionSettings: openExtensionApproval()
+        case .installAgain: installExtension()
+        case .requestCameraAccess: requestCameraAccess()
+        case .openCameraPrivacy: openCameraPrivacy()
+        case .showInFinder(let path): NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+        }
+    }
 
     func refresh() {
         cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
@@ -69,27 +90,52 @@ final class OnboardingModel: ObservableObject {
         if let previous = Step(rawValue: step.rawValue - 1) { step = previous }
     }
 
-    var protectionActive: Bool { extensionConnected && cameraStatus == .authorized }
+    var protectionActive: Bool { extensionConnected && cameraStatus == .authorized && requiredIssues.isEmpty }
 }
 
-/// The first-run guide window. Shown on first launch and from Settings › General.
+/// The first-run guide window. Shown on first launch and from Settings › General; its checklist
+/// of missing steps opens from the menu, and by itself when a required step goes missing later.
 final class OnboardingWindowController {
     let model = OnboardingModel()
     private var window: NSWindow?
 
+    init() {
+        model.close = { [weak self] in self?.close() }
+        model.showFullGuide = { [weak self] in self?.show() }
+    }
+
+    var isVisible: Bool { window?.isVisible == true }
+
+    /// The step-by-step guide, from the start.
     func show() {
         model.step = .welcome
+        present(checklist: false)
+    }
+
+    /// Only the setup steps still missing, each with what to do. When OffSight opens it by itself,
+    /// `activate` is false: the window comes to the front without taking the keyboard from the
+    /// app in use, which may be a meeting.
+    func showChecklist(activate: Bool = true) {
+        present(checklist: true, activate: activate)
+    }
+
+    private func present(checklist: Bool, activate: Bool = true) {
+        model.checklist = checklist
         model.refresh()
         if window == nil {
             let newWindow = NSWindow(contentViewController: NSHostingController(rootView: OnboardingView(model: model)))
-            newWindow.title = "Welcome to OffSight"
             newWindow.styleMask = [.titled, .closable]
             newWindow.isReleasedWhenClosed = false
             newWindow.center()
             window = newWindow
         }
-        NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
+        window?.title = checklist ? "OffSight Setup" : "Welcome to OffSight"
+        if activate {
+            NSApp.activate(ignoringOtherApps: true)
+            window?.makeKeyAndOrderFront(nil)
+        } else {
+            window?.orderFrontRegardless()
+        }
     }
 
     func close() {
@@ -101,6 +147,16 @@ private struct OnboardingView: View {
     @ObservedObject var model: OnboardingModel
 
     var body: some View {
+        if model.checklist {
+            SetupChecklist(model: model)
+                .padding(24)
+                .frame(width: 560, height: 470)
+        } else {
+            guide
+        }
+    }
+
+    private var guide: some View {
         VStack(alignment: .leading, spacing: 0) {
             ProgressDots(current: model.step.rawValue, count: OnboardingModel.Step.allCases.count)
                 .padding(.bottom, 16)
@@ -175,6 +231,75 @@ private struct StatusLine: View {
     }
 }
 
+/// A missing setup step: what it is, why, and buttons that help do it.
+private struct IssueRow: View {
+    let issue: SetupIssue
+    let perform: (SetupIssue.Action) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(issue.title, systemImage: issue.required ? "exclamationmark.circle" : "info.circle")
+                .font(.headline)
+                .foregroundStyle(issue.required ? Color.orange : Color.secondary)
+            Text(issue.detail)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if !issue.actions.isEmpty {
+                HStack {
+                    ForEach(issue.actions.indices, id: \.self) { index in
+                        Button(issue.actions[index].label) { perform(issue.actions[index]) }
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// Everything OffSight needs, with what is missing first and how to fix it (UR-37). Opens by
+/// itself when a required step stays missing after the first run, and from the menu.
+private struct SetupChecklist: View {
+    @ObservedObject var model: OnboardingModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            StepHeader(title: model.requiredIssues.isEmpty ? "OffSight is set up" : "Finish setting up OffSight",
+                       text: model.requiredIssues.isEmpty
+                           ? "Everything OffSight needs is in place."
+                           : "Some steps are missing. Until they're done, meeting apps get the placeholder, but you can't go live. This list updates as you go.")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let issue = model.extensionIssue {
+                        IssueRow(issue: issue, perform: model.perform)
+                    } else if model.extensionConnected {
+                        StatusLine(ok: true, text: "OffSight Camera is ready")
+                    } else {
+                        Label("OffSight Camera: \(model.extensionStatus)", systemImage: "hourglass")
+                            .foregroundStyle(.secondary)
+                    }
+                    if let issue = model.cameraIssue {
+                        IssueRow(issue: issue, perform: model.perform)
+                    } else {
+                        StatusLine(ok: true, text: "Camera access allowed")
+                    }
+                    ForEach(model.issues.filter { !$0.required }) { issue in
+                        IssueRow(issue: issue, perform: model.perform)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Divider().padding(.vertical, 12)
+            HStack {
+                Button("Show Full Guide", action: model.showFullGuide)
+                Spacer()
+                Button("Done", action: model.close)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+    }
+}
+
 private struct WelcomeStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -203,7 +328,10 @@ private struct ExtensionStep: View {
                        text: "macOS asks you to approve the camera OffSight adds. Without it, meeting apps can't use OffSight Camera.")
             StatusLine(ok: model.extensionConnected,
                        text: model.extensionConnected ? "OffSight Camera is ready" : "Status: \(model.extensionStatus)")
-            if !model.extensionConnected {
+            ForEach(model.issues.filter(\.concernsCameraExtension)) { issue in
+                IssueRow(issue: issue, perform: model.perform)
+            }
+            if !model.extensionConnected, model.extensionIssue == nil {
                 Text("On macOS 15 or later: System Settings › General › Login Items & Extensions › Camera Extensions, then turn on OffSight. On macOS 13 or 14: System Settings › Privacy & Security, then Allow.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -303,8 +431,9 @@ private struct FinishStep: View {
             StepHeader(title: model.protectionActive ? "Protection is active" : "Almost there",
                        text: model.protectionActive
                            ? "Meeting apps using OffSight Camera now see the placeholder until you approve them."
-                           : "Some steps aren't finished yet. Meeting apps still get the placeholder, but you can't go live until they are.")
-            StatusLine(ok: model.extensionConnected, text: model.extensionConnected ? "OffSight Camera ready" : "OffSight Camera not ready")
+                           : "Some steps aren't finished yet. Meeting apps still get the placeholder, but you can't go live until they are. OffSight shows what's missing again later, and the menu has Finish Setting Up.")
+            StatusLine(ok: model.extensionConnected && model.extensionIssue == nil,
+                       text: model.extensionIssue?.title ?? (model.extensionConnected ? "OffSight Camera ready" : "OffSight Camera not ready"))
             StatusLine(ok: model.cameraStatus == .authorized,
                        text: model.cameraStatus == .authorized ? "Camera access allowed" : "Camera access not allowed")
             Toggle("Launch OffSight at login (recommended)", isOn: $model.launchAtLogin)

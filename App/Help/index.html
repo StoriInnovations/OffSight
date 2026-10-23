@@ -202,6 +202,10 @@
       <h3 id="setup-login">Step 4: Check “Launch at login”</h3>
       <p>OffSight turns this on the first time it runs, so protection starts whenever you log in. You can check it in <span class="menu">OffSight › Settings › General</span>.</p>
       <p class="callout">If OffSight isn’t running, meeting apps still get the placeholder, but you can’t go live until you open OffSight again.</p>
+
+      <h3 id="setup-check">If a step is missing later</h3>
+      <p>OffSight keeps checking its setup. If something it needs goes missing for more than half a minute (the camera extension isn’t allowed, isn’t running, or waits for a restart, or camera access is off), the OffSight menu shows <strong>⚠︎ Setup: …</strong> with <strong>Finish Setting Up…</strong>, and the <strong>OffSight Setup</strong> window opens by itself with what to do for each step. You can open it any time from <span class="menu">Settings › General › Check Setup…</span>.</p>
+      <p>After an update, macOS may keep the old camera extension until the Mac restarts, and sometimes lists two builds or two cameras called OffSight Camera. OffSight then asks you to restart.</p>
     </section>
 
     <!-- ───────────────────────────── 3 ───────────────────────────── -->
@@ -313,6 +317,7 @@
         <li><strong>Launch OffSight at login.</strong> On by default. Recommended.</li>
         <li><strong>Notify when an app goes live and when its session ends.</strong></li>
         <li><strong>Coloured status icon.</strong> Adds coloured badges to the menu bar icon.</li>
+        <li><strong>Show Welcome Guide…</strong> walks through setup again; <strong>Check Setup…</strong> lists anything still missing (<a href="#setup-check">more</a>).</li>
       </ul>
 
       <h3 id="settings-camera">Camera</h3>
@@ -353,7 +358,13 @@
         <dd>Check that the OffSight menu says <strong>Camera extension: Connected</strong>. If it asks for approval, follow <a href="#setup-extension">Step 2</a>. Then quit and reopen the meeting app, because many apps list cameras only when they start.</dd>
 
         <dt>The menu says “Installed but not running — restart the Mac if this persists”.</dt>
-        <dd>macOS sometimes waits for a restart before starting a new or updated camera extension. Restart your Mac.</dd>
+        <dd>macOS sometimes waits for a restart before starting a new or updated camera extension. Restart your Mac. The <a href="#setup-check">OffSight Setup</a> window says so too.</dd>
+
+        <dt>OffSight Camera appears twice, or OffSight Setup says several builds are installed.</dt>
+        <dd>An older build of the camera extension is still loaded next to the new one, usually after an update or after opening another copy of OffSight. Restart your Mac. If OffSight Setup lists other copies of OffSight, move the ones you don’t use to the Trash.</dd>
+
+        <dt>OffSight Setup says to move OffSight to Applications.</dt>
+        <dd>macOS installs camera extensions only from apps in the Applications folder. Quit OffSight, drag it into Applications, and open it from there.</dd>
 
         <dt>The app shows a black or grey picture instead of the placeholder.</dt>
         <dd>Make sure the app’s window is visible: some apps, like Photo Booth, turn the camera off while their window is hidden. If it persists, open <span class="menu">Settings › Advanced › Install / Update</span>, then quit and reopen the meeting app. If it still happens, send <strong>Copy Diagnostics</strong> to support.</dd>

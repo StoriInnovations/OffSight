@@ -33,11 +33,13 @@ final class BuildVersionTests: XCTestCase {
         XCTAssertEqual(status([installed("1760000000")]), .installedNotStarted)
         XCTAssertEqual(status([installed("1750000000", uninstalling: true), installed("1760000000")]), .installedNotStarted)
         XCTAssertEqual(status([installed("1760000000", enabled: false, awaiting: true)]), .awaitingApproval)
+        XCTAssertEqual(status([installed("1760000000", enabled: false)]), .disabled)
         XCTAssertEqual(status([installed("1750000000")]), .notInstalled(installedBuilds: ["1750000000"], error: nil))
         XCTAssertEqual(status([installed("1760000000", uninstalling: true)]), .notInstalled(installedBuilds: [], error: nil))
         XCTAssertEqual(status([]), .notInstalled(installedBuilds: [], error: nil))
 
         XCTAssertTrue(ExtensionVersionStatus.installedNotStarted.summary(bundled: bundled).hasPrefix("Build 1760000000 is installed"))
+        XCTAssertTrue(ExtensionVersionStatus.disabled.summary(bundled: bundled).contains("turned off"))
         let pending = ExtensionVersionStatus.notInstalled(installedBuilds: ["1750000000"], error: nil).summary(bundled: bundled)
         XCTAssertTrue(pending.contains("macOS has build 1750000000") && pending.contains("asking macOS to install"))
         XCTAssertTrue(ExtensionVersionStatus.notInstalled(installedBuilds: [], error: "denied").summary(bundled: bundled).hasSuffix("failed: denied"))

@@ -20,6 +20,8 @@ struct MenuState {
     var extensionStatus = ""
     var extensionNeedsApproval = false
     var cameraAccessDenied = false
+    /// Required setup steps that have stayed missing (titles).
+    var setupSteps: [String] = []
 }
 
 protocol StatusMenuActions: AnyObject {
@@ -30,6 +32,7 @@ protocol StatusMenuActions: AnyObject {
     func resumeProtection()
     func openExtensionApproval()
     func openCameraPrivacySettings()
+    func openSetupChecklist()
     func openSettings()
     func openHelp()
     func openAbout()
@@ -121,7 +124,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             menu.addItem(disabled("Fix: choose “OffSight Camera” as the camera in that app."))
         }
 
-        if state.cameraAccessDenied {
+        if !state.setupSteps.isEmpty {
+            menu.addItem(.separator())
+            for step in state.setupSteps {
+                menu.addItem(disabled("⚠︎ Setup: \(step)"))
+            }
+            menu.addItem(item("Finish Setting Up…") { $0.openSetupChecklist() })
+        }
+
+        if state.cameraAccessDenied, state.setupSteps.isEmpty {
             menu.addItem(.separator())
             menu.addItem(disabled("OffSight needs camera access for preview and live video"))
             menu.addItem(item("Open Camera privacy settings…") { $0.openCameraPrivacySettings() })

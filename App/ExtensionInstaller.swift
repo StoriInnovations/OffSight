@@ -58,7 +58,11 @@ final class ExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
         return nil
     }
 
+    /// The last install failed because the app isn't in /Applications.
+    private(set) var failedOutsideApplications = false
+
     func activate() {
+        failedOutsideApplications = false
         state = .activating
         submit(OSSystemExtensionRequest.activationRequest(forExtensionWithIdentifier: extensionIdentifier, queue: .main),
                kind: .activation)
@@ -146,6 +150,9 @@ final class ExtensionInstaller: NSObject, OSSystemExtensionRequestDelegate {
             return
         }
         log.error("Extension request failed: \(error.localizedDescription, privacy: .public)")
+        if kind == .activation {
+            failedOutsideApplications = (error as? OSSystemExtensionError)?.code == .unsupportedParentBundleLocation
+        }
         state = .failed(error.localizedDescription)
     }
 }

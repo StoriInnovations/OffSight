@@ -18,6 +18,7 @@ Status of the work after the M0 working slice, checked against `docs/01-user-req
 | Item | Requirement | Status |
 |---|---|---|
 | First-run onboarding | UR-36, UR-37 | **Done**: six-step welcome guide; reopen from Settings › General. Verify on device. |
+| Setup check after the first run | UR-37 | **In review, verify on device**: missing steps (extension not installed, not allowed or turned off, not started, old build running, several builds or OffSight Cameras needing a restart, app outside Applications, camera access) are listed in the menu and open an OffSight Setup checklist with what to do; Settings › General › Check Setup…. |
 | Launch at login with consent | UR-38; App Store 2.4.5 | **Done**: pre-ticked choice on the last onboarding step; launch agent. |
 | Relaunch after a crash | NFR-11 | **Done**: launch agent with KeepAlive (when launch at login is on); SIGTERM and Quit exit cleanly. Device check `fail-closed`. |
 | Camera unplugged mid-session | NFR-12 | **Done**: all shutters close, camera reselected, notification. Verify on device with a USB webcam. |
