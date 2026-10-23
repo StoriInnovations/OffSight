@@ -26,6 +26,7 @@ final class SettingsModel: ObservableObject {
     var openCameraPrivacySettings: () -> Void = {}
     var copyDiagnostics: () -> Void = {}
     var showOnboarding: () -> Void = {}
+    var showSetupChecklist: () -> Void = {}
 
     func refresh() {
         launchAtLogin = LaunchAtLogin.isEnabled
@@ -110,6 +111,8 @@ private struct GeneralTab: View {
             Section {
                 Button("Show Welcome Guide…", action: model.showOnboarding)
                 Note("Walks through setup again: the camera extension, permissions and your meeting apps.")
+                Button("Check Setup…", action: model.showSetupChecklist)
+                Note("Lists anything OffSight still needs, such as approving the camera extension or restarting the Mac, with what to do.")
             }
         }
         .formStyle(.grouped)

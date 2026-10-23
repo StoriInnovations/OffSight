@@ -10,7 +10,7 @@ Status of the work after the M0 working slice, checked against `docs/01-user-req
 |---|---|---|
 | B1 | No prompt when Photo Booth opens with OffSight Camera already selected | **Done**: rule R2 changed (an unanswered session that restarts within grace prompts again). Unit tests; device checks `restart-pending` and `photo-booth`. The symptom remains with a different cause: see B3. |
 | B3 | Photo Booth opened with OffSight Camera already selected shows black, no prompt | **Photo Booth behaviour, not fixed in OffSight.** Photo Booth connects to OffSight Camera on launch but never starts its stream, so OffSight has nothing to prompt for and Photo Booth gets no frames (2026-10-19 logs: "Client connected", no "Source start requested" until the camera is chosen again, then a prompt within milliseconds). Teams and Meet prompt normally. Workaround in the help page's Troubleshooting; `photo-booth` device check asks the tester to choose the camera again. |
-| B4 | Live video sometimes stretched in Teams and Google Meet | **Fix in review, verify on device**: OffSight no longer stretches when the camera's mode has another shape than OffSight Camera (capture output uses aspect fill; the CPU fallback centre-crops), and camera mode changes are logged. See `docs/spikes/aspect-ratio-survey.md`. |
+| B4 | Live video sometimes stretched in Teams and Google Meet | **Done**: OffSight no longer stretches when the camera's mode has another shape than OffSight Camera (capture output uses aspect fill; the CPU fallback centre-crops), and camera mode changes are logged. Verified on device in Teams and Google Meet, with B2 re-checked. See `docs/spikes/aspect-ratio-survey.md`. |
 | B2 | macOS Background effect reaches OffSight's preview but not meeting apps | **Done**: the capture output now delivers BGRA at OffSight Camera's size and OffSight only copies it. The cause was the VideoToolbox pixel transfer OffSight ran on live camera frames: from the first live frame until OffSight quit, macOS stopped applying the effects chosen for OffSight to all its frames. Verified on device in Photo Booth and Teams. |
 
 ## Must-haves
@@ -18,6 +18,7 @@ Status of the work after the M0 working slice, checked against `docs/01-user-req
 | Item | Requirement | Status |
 |---|---|---|
 | First-run onboarding | UR-36, UR-37 | **Done**: six-step welcome guide; reopen from Settings › General. Verify on device. |
+| Setup check after the first run | UR-37 | **In review, verify on device**: missing steps (extension not installed, not allowed or turned off, not started, old build running, several builds or OffSight Cameras needing a restart, app outside Applications, camera access) are listed in the menu and open an OffSight Setup checklist with what to do; Settings › General › Check Setup…. |
 | Launch at login with consent | UR-38; App Store 2.4.5 | **Done**: pre-ticked choice on the last onboarding step; launch agent. |
 | Relaunch after a crash | NFR-11 | **Done**: launch agent with KeepAlive (when launch at login is on); SIGTERM and Quit exit cleanly. Device check `fail-closed`. |
 | Camera unplugged mid-session | NFR-12 | **Done**: all shutters close, camera reselected, notification. Verify on device with a USB webcam. |

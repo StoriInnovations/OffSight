@@ -54,6 +54,8 @@ public enum ExtensionVersionStatus: Equatable, Sendable {
     case awaitingApproval
     /// The app's build is installed and allowed but macOS hasn't started it (usually until a restart).
     case installedNotStarted
+    /// The app's build is installed but turned off in System Settings.
+    case disabled
     /// macOS doesn't have the app's build: the install request is pending or failed.
     case notInstalled(installedBuilds: [String], error: String?)
     /// Not running and nothing more is known yet.
@@ -76,7 +78,7 @@ public enum ExtensionVersionStatus: Equatable, Sendable {
         }
         if let mine = installed.first(where: { $0.version.build == bundled.build && !$0.uninstalling }) {
             if mine.awaitingApproval { return .awaitingApproval }
-            if mine.enabled { return .installedNotStarted }
+            return mine.enabled ? .installedNotStarted : .disabled
         }
         return .notInstalled(installedBuilds: installed.filter { !$0.uninstalling }.map(\.version.build), error: installError)
     }
@@ -94,6 +96,8 @@ public enum ExtensionVersionStatus: Equatable, Sendable {
             return "\(carried.capitalizedFirst) is installed and waiting for you to allow it in System Settings › General › Login Items & Extensions."
         case .installedNotStarted:
             return "\(carried.capitalizedFirst) is installed but macOS hasn't started it yet. Restart the Mac."
+        case .disabled:
+            return "\(carried.capitalizedFirst) is installed but turned off in System Settings › General › Login Items & Extensions."
         case .notInstalled(let builds, let error):
             let has = builds.isEmpty ? "macOS has no OffSight Camera installed" : "macOS has build \(builds.joined(separator: ", "))"
             if let error { return "Not running. \(has); installing \(carried) failed: \(error)" }

@@ -6,7 +6,7 @@ import OffSightCore
 enum Diagnostics {
     static func report(snapshot: ClientSnapshot?, link: ExtensionLink, installer: ExtensionInstaller,
                        resolved: [ResolvedApp], engine: PolicyEngine, captureDevice: String?,
-                       nativeFormat: Dimensions?, extensionVersion: String, captureMode: String?, timeline: [String], feeder: SinkFeeder, bypass: BypassMonitor) -> String {
+                       nativeFormat: Dimensions?, extensionVersion: String, setupIssues: [SetupIssue], captureMode: String?, timeline: [String], feeder: SinkFeeder, bypass: BypassMonitor) -> String {
         var lines: [String] = []
         let info = Bundle.main.infoDictionary ?? [:]
         lines.append("OffSight diagnostics — \(ISO8601DateFormatter().string(from: Date()))")
@@ -21,6 +21,7 @@ enum Diagnostics {
         lines.append("")
         lines.append("Extension install state: \(installer.state.label)")
         lines.append("Extension reported by macOS: \(installer.installedDescription)")
+        lines.append("Setup: \(setupIssues.isEmpty ? "complete" : setupIssues.map { "\($0.title)\($0.required ? "" : " (recommended)")" }.joined(separator: "; "))")
         lines.append("CoreMediaIO devices:")
         for device in CMIO.devices() {
             lines.append("  - \(CMIO.name(of: device) ?? "?") uid=\(CMIO.deviceUID(of: device) ?? "?") runningSomewhere=\(CMIO.isRunningSomewhere(device).map { String($0) } ?? "?")")
