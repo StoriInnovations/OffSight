@@ -68,6 +68,24 @@ public struct Dimensions: Hashable, Codable, Sendable, CustomStringConvertible {
     }
 
     public var description: String { "\(width)x\(height)" }
+
+    /// The centred part of a frame this size that has `target`'s shape, so it scales into `target`
+    /// without distortion (aspect fill: the longer side is trimmed equally at both ends). A frame
+    /// that already has the target's shape is returned whole.
+    public func aspectFillCrop(to target: Dimensions) -> (x: Int, y: Int, width: Int, height: Int) {
+        guard width > 0, height > 0, target.width > 0, target.height > 0 else { return (0, 0, width, height) }
+        // Compare the shapes width/height without floating point.
+        let source = width * target.height, wanted = target.width * height
+        if source > wanted {
+            let cropWidth = max(1, min(width, (height * target.width + target.height / 2) / target.height))
+            return ((width - cropWidth) / 2, 0, cropWidth, height)
+        }
+        if source < wanted {
+            let cropHeight = max(1, min(height, (width * target.height + target.width / 2) / target.width))
+            return (0, (height - cropHeight) / 2, width, cropHeight)
+        }
+        return (0, 0, width, height)
+    }
 }
 
 /// Packs a four-character string into a CoreMediaIO selector value, e.g. "osnp".

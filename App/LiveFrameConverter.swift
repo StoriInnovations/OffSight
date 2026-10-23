@@ -1,9 +1,12 @@
 import Accelerate
 import CoreVideo
 import Foundation
+import OffSightCore
 
 /// Copies camera frames into OffSight Camera's BGRA buffers, converting (420v) and scaling on the
-/// CPU when a frame isn't already BGRA at the right size. Capture queue only.
+/// CPU when a frame isn't already BGRA at the right size. A frame of another shape (the camera
+/// changed modes mid-call) is centre-cropped to OffSight Camera's shape, never stretched.
+/// Capture queue only.
 ///
 /// Deliberately not VideoToolbox: running camera frames through a `VTPixelTransferSession` made
 /// macOS stop applying the video effects chosen for OffSight (Background, Portrait…) to every
@@ -83,7 +86,8 @@ final class CPUFrameConverter {
                              rowBytes: CVPixelBufferGetBytesPerRow(pixelBuffer))
     }
 
-    /// Copies row by row when the sizes match, otherwise scales (both are the same shape).
+    /// Copies row by row when the sizes match. Otherwise scales the centred part of the input that
+    /// has the output's shape, so a frame of a different shape is trimmed, not distorted.
     private static func copyOrScale(_ input: inout vImage_Buffer, into output: inout vImage_Buffer) -> Bool {
         if input.width == output.width, input.height == output.height {
             let rowBytes = Int(input.width) * 4
@@ -92,6 +96,11 @@ final class CPUFrameConverter {
             }
             return true
         }
-        return vImageScale_ARGB8888(&input, &output, nil, vImage_Flags(kvImageNoFlags)) == kvImageNoError
+        let crop = Dimensions(width: Int(input.width), height: Int(input.height))
+            .aspectFillCrop(to: Dimensions(width: Int(output.width), height: Int(output.height)))
+        var region = vImage_Buffer(data: input.data + crop.y * input.rowBytes + crop.x * 4,
+                                   height: vImagePixelCount(crop.height), width: vImagePixelCount(crop.width),
+                                   rowBytes: input.rowBytes)
+        return vImageScale_ARGB8888(&region, &output, nil, vImage_Flags(kvImageNoFlags)) == kvImageNoError
     }
 }

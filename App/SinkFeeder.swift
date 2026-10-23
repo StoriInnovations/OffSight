@@ -32,17 +32,34 @@ final class SinkFeeder {
     private let cpuConverter = CPUFrameConverter()
     /// Live frames that failed to convert (diagnostics).
     private(set) var conversionFailures: UInt64 = 0
-    /// How the last live frame was produced (diagnostics; any thread).
+    /// How the last live frame was produced, and from what (diagnostics; any thread).
     var lastConversion: String {
         lock.lock(); defer { lock.unlock() }
-        return conversionUsed
+        return cameraFrame.isEmpty ? conversionUsed : "\(conversionUsed), camera frames \(cameraFrame)"
     }
     private var conversionUsed = "none yet"
+    /// Size and pixel format of the last camera frame sent live, e.g. "1920x1080 BGRA".
+    private var cameraFrame = ""
+    /// Called on the capture queue when live camera frames change size or pixel format.
+    var onCameraFrameChange: ((String) -> Void)?
 
-    private func noteConversion(_ name: String) {
+    private func noteConversion(_ name: String, from frame: CVPixelBuffer) {
+        let description = Self.frameDescription(frame)
         lock.lock()
         conversionUsed = name
+        let changed = description != cameraFrame
+        cameraFrame = description
         lock.unlock()
+        if changed {
+            log.notice("Live camera frames now \(description, privacy: .public)")
+            onCameraFrameChange?(description)
+        }
+    }
+
+    private static func frameDescription(_ buffer: CVPixelBuffer) -> String {
+        let type = CVPixelBufferGetPixelFormatType(buffer)
+        let code = String([24, 16, 8, 0].map { Character(Unicode.Scalar(UInt8(truncatingIfNeeded: type >> UInt32($0)))) })
+        return "\(CVPixelBufferGetWidth(buffer))x\(CVPixelBufferGetHeight(buffer)) \(code)"
     }
     private var livePool: PoolCache
     private var placeholderPool: PoolCache
@@ -114,7 +131,7 @@ final class SinkFeeder {
         let ready = CVPixelBufferGetPixelFormatType(cameraFrame) == kCVPixelFormatType_32BGRA
             && CVPixelBufferGetWidth(cameraFrame) == CVPixelBufferGetWidth(output)
             && CVPixelBufferGetHeight(cameraFrame) == CVPixelBufferGetHeight(output)
-        noteConversion(ready ? "copied from the camera output" : "converted on the CPU")
+        noteConversion(ready ? "copied from the camera output" : "converted on the CPU", from: cameraFrame)
         return cpuConverter.convert(cameraFrame, into: output)
     }
 
