@@ -1,8 +1,15 @@
 # Survey: live video stretched in meeting apps (B4)
 
-2026-10-23. Live video sometimes looked horizontally stretched in Microsoft Teams. This note
-records what was found about where stretching can happen and why the fix is "crop on a shape
-mismatch" rather than more formats.
+2026-10-23. Live video sometimes looked horizontally stretched in Microsoft Teams and in Google
+Meet. This note records what was found about where stretching can happen and why the fix is
+"crop on a shape mismatch" rather than more formats.
+
+Meet in Chrome or Edge captures through Chromium, which scales with aspect fill and can't stretch
+a 16:9 frame, so stretched video in Meet means OffSight's frames were already stretched. Without
+OffSight, each meeting app captures the real camera itself and its own capture output absorbs a
+camera mode change (crop, not stretch). With OffSight, OffSight is the only app capturing the
+real camera; the meeting apps see a fixed 16:9 OffSight Camera, so OffSight has to absorb mode
+changes the way Chromium does.
 
 ## How OffSight sizes OffSight Camera
 
