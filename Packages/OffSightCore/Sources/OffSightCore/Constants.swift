@@ -25,6 +25,10 @@ public enum OffSightConstants {
 
     public static let frameRate: Int32 = 30
 
+    /// The only place OffSight Camera accepts live video from (decision A7: the extension's
+    /// sandbox refuses code-signing checks, so it checks the client's path instead).
+    public static let installedAppPath = "/Applications/OffSight.app"
+
     /// OffSight Camera offers exactly one format, `effectsFreeFormat(for:)` of the physical camera
     /// used as the live source, reported by OffSight.app. This is used until the first report arrives.
     public static let defaultFormat = Dimensions(width: 2560, height: 1440)

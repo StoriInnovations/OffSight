@@ -6,11 +6,12 @@ import OffSightCore
 enum Diagnostics {
     static func report(snapshot: ClientSnapshot?, link: ExtensionLink, installer: ExtensionInstaller,
                        resolved: [ResolvedApp], engine: PolicyEngine, captureDevice: String?,
-                       nativeFormat: Dimensions?, extensionVersion: String, setupIssues: [SetupIssue], captureMode: String?, timeline: [String], feeder: SinkFeeder, bypass: BypassMonitor) -> String {
+                       nativeFormat: Dimensions?, extensionVersion: String, setupIssues: [SetupIssue], otherCopies: [String], captureMode: String?, timeline: [String], feeder: SinkFeeder, bypass: BypassMonitor) -> String {
         var lines: [String] = []
         let info = Bundle.main.infoDictionary ?? [:]
         lines.append("OffSight diagnostics — \(ISO8601DateFormatter().string(from: Date()))")
         lines.append("App version: \(info["CFBundleShortVersionString"] ?? "?") (\(info["CFBundleVersion"] ?? "?")), \(BuildChannel.current.label)")
+        lines.append("App path: \(Bundle.main.bundlePath)\(otherCopies.isEmpty ? "" : "; other copies: \(otherCopies.joined(separator: ", "))")")
         lines.append("Camera extension version: \(extensionVersion)")
         lines.append("macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
         #if arch(arm64)

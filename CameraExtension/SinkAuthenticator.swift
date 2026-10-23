@@ -20,7 +20,6 @@ enum SinkAuthenticator {
     private static let log = Logger(subsystem: OffSightConstants.logSubsystem, category: "sink-auth")
     /// kPOSIXErrorBase + EPERM: the sandbox refused the check (spike S5).
     private static let sandboxDenied: OSStatus = 100_001
-    private static let installedAppPath = "/Applications/OffSight.app"
 
     static func authenticate(pid: Int32, signingID: String?) -> Result {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -78,10 +77,12 @@ enum SinkAuthenticator {
         // accept the client running OffSight's executable from /Applications/OffSight.app (where
         // both the App Store and Homebrew builds install). Accepted risk: someone with admin rights
         // who replaces that app could inject frames; nobody can read the camera through the sink.
-        if let bundleURL = appBundleURL(of: pid), bundleURL.path == Self.installedAppPath {
+        let clientPath = appBundleURL(of: pid)?.path
+        if clientPath == OffSightConstants.installedAppPath {
             return Result(ok: true, mode: "path(guest=\(guestStatus),codesign=\(staticStatus))")
         }
-        return Result(ok: false, mode: "codesign-unavailable(guest=\(guestStatus),path=\(staticStatus),signingID=\(sid))")
+        // Name where the client runs from, so diagnostics show why it was refused.
+        return Result(ok: false, mode: "codesign-unavailable(guest=\(guestStatus),path=\(staticStatus),signingID=\(sid),client=\(clientPath ?? "unknown"))")
     }
 
     /// The outermost .app bundle containing the executable of `pid`.

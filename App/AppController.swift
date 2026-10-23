@@ -240,7 +240,7 @@ final class AppController: StatusMenuActions {
         facts.installCompletesAfterRestart = installer.state == .willCompleteAfterReboot
         facts.awaitingApproval = installer.state == .needsUserApproval
         facts.installFailedOutsideApplications = installer.failedOutsideApplications
-        facts.appPath = Bundle.main.bundlePath
+        facts.appPath = Bundle.main.bundleURL.resolvingSymlinksInPath().path
         facts.installed = installer.installedExtensions
         facts.offSightCameras = offSightCameraCount
         switch CameraCapture.authorizationStatus {
@@ -249,6 +249,9 @@ final class AppController: StatusMenuActions {
         default: facts.cameraAccess = .denied
         }
         facts.otherCopies = otherAppCopies
+        if let snapshot = link.latestSnapshot, !snapshot.sinkConnected, snapshot.stats.rejectedUnauthenticated > 0 {
+            facts.sinkRefused = snapshot.sinkAuthMode
+        }
         return facts
     }
 
@@ -566,6 +569,7 @@ final class AppController: StatusMenuActions {
             nativeFormat: capture.nativeFormat,
             extensionVersion: extensionVersionStatus.summary(bundled: installer.bundledVersion),
             setupIssues: onboarding.model.issues,
+            otherCopies: otherAppCopies,
             captureMode: capture.activeModeDescription.map { "\($0); active now: \(capture.activeEffectsDescription)" },
             timeline: timeline,
             feeder: feeder,
