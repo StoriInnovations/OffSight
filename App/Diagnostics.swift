@@ -10,7 +10,7 @@ enum Diagnostics {
         var lines: [String] = []
         let info = Bundle.main.infoDictionary ?? [:]
         lines.append("OffSight diagnostics — \(ISO8601DateFormatter().string(from: Date()))")
-        lines.append("App version: \(info["CFBundleShortVersionString"] ?? "?") (\(info["CFBundleVersion"] ?? "?"))")
+        lines.append("App version: \(info["CFBundleShortVersionString"] ?? "?") (\(info["CFBundleVersion"] ?? "?")), \(BuildChannel.current.label)")
         lines.append("Camera extension version: \(extensionVersion)")
         lines.append("macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
         #if arch(arm64)

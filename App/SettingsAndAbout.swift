@@ -68,6 +68,10 @@ struct AboutView: View {
                     Text("App").foregroundStyle(.secondary)
                     Text(appVersion)
                 }
+                GridRow {
+                    Text("Build").foregroundStyle(.secondary)
+                    Text(BuildChannel.current.label)
+                }
                 GridRow(alignment: .top) {
                     Text("Camera extension").foregroundStyle(.secondary)
                     Label(model.extensionLine,
