@@ -151,7 +151,7 @@ final class AppController: StatusMenuActions {
         onboarding.model.installExtension = { [weak self] in self?.installer.activate() }
         onboarding.model.openExtensionApproval = { [weak self] in self?.openExtensionApproval() }
         onboarding.model.finished = { [weak self] launchAtLogin in
-            // UR-38 with consent: the choice made on the last step (pre-ticked).
+            // UR-38 with consent: the choice made on the last step (unticked unless the user ticks it).
             LaunchAtLogin.setEnabled(launchAtLogin)
             UserDefaults.standard.set(true, forKey: AppDefaults.onboardingCompletedKey)
             self?.settingsModel.refresh()

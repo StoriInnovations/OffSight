@@ -27,3 +27,6 @@ OffSight.xcodeproj/
 .build/
 .swiftpm/
 OffSight visual identity system.zip
+
+# Test runs (Tools/OffSightTest writes these to the working directory)
+offsight-test-report-*.md
