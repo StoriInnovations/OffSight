@@ -3,6 +3,16 @@ import AVFoundation
 import OffSightCore
 import SwiftUI
 
+/// Windows that show the camera preview are hidden from screen capture and sharing (NFR-05).
+/// Debug builds only: launch with OFFSIGHT_SCREENSHOT_MODE=1 to make them capturable, so
+/// App Store screenshots can include the approval prompt. Release builds always return `.none`.
+var privateWindowSharingType: NSWindow.SharingType {
+    #if DEBUG
+    if ProcessInfo.processInfo.environment["OFFSIGHT_SCREENSHOT_MODE"] == "1" { return .readOnly }
+    #endif
+    return .none
+}
+
 /// One pending approval shown in the prompt panel.
 struct PromptItem: Identifiable, Equatable {
     let app: AppKey
@@ -43,7 +53,7 @@ final class PromptPanelController {
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.sharingType = .none // NFR-05 (best effort, spike S7)
+        panel.sharingType = privateWindowSharingType // NFR-05 (best effort, spike S7)
         panel.standardWindowButton(.closeButton)?.isHidden = true
         panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
         panel.standardWindowButton(.zoomButton)?.isHidden = true
@@ -151,13 +161,12 @@ private struct PromptCard: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            HStack {
-                if let expiresAt = item.expiresAt {
-                    Text("Keeps placeholder in \(max(0, Int(expiresAt.timeIntervalSince(now).rounded(.up)))) s")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .accessibilityLabel("Prompt closes automatically and keeps the placeholder")
-                }
-                Spacer()
+            if let expiresAt = item.expiresAt {
+                Text("Keeps the placeholder in \(max(0, Int(expiresAt.timeIntervalSince(now).rounded(.up)))) s")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .accessibilityLabel("Prompt closes automatically and keeps the placeholder")
+            }
+            HStack(spacing: 8) {
                 Button("Keep placeholder") {
                     if ApprovalInputGuard.isGenuine(shownAt: item.shownAt) { onKeep() }
                 }
@@ -167,6 +176,7 @@ private struct PromptCard: View {
                 // The prompt accepts only real clicks (threat T4), so VoiceOver activation is
                 // ignored here; the menu and the go-live shortcut work with VoiceOver.
                 .accessibilityHint("Click with the pointer, or use Go live in the OffSight menu.")
+                Spacer(minLength: 0)
             }
         }
         .padding(10)

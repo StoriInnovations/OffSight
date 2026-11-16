@@ -199,8 +199,8 @@
       <p>If you clicked <strong>Don’t Allow</strong>, turn on OffSight under <span class="menu">Privacy &amp; Security › Camera</span>.<br>
         <a class="button-link" href="x-apple.systempreferences:com.apple.preference.security?Privacy_Camera">Open Camera privacy settings</a></p>
 
-      <h3 id="setup-login">Step 4: Check “Launch at login”</h3>
-      <p>OffSight turns this on the first time it runs, so protection starts whenever you log in. You can check it in <span class="menu">OffSight › Settings › General</span>.</p>
+      <h3 id="setup-login">Step 4: Choose “Launch at login”</h3>
+      <p>The last step of the welcome guide offers to launch OffSight at login. It is off until you tick it. Turning it on is recommended: OffSight then starts whenever you log in and restarts itself if it ever quits unexpectedly. You can change it any time in <span class="menu">OffSight › Settings › General</span>.</p>
       <p class="callout">If OffSight isn’t running, meeting apps still get the placeholder, but you can’t go live until you open OffSight again.</p>
 
       <h3 id="setup-check">If a step is missing later</h3>
@@ -275,12 +275,20 @@
         <li>A preview of your camera, which only you can see.</li>
         <li><strong>Keep placeholder</strong> or <strong>Go live for this session</strong>.</li>
       </ul>
+      <figure>
+        <img src="images/prompt.png" alt="The OffSight prompt: a private camera preview, the app name, and the buttons Keep placeholder and Go live for this session" width="380">
+        <figcaption>The prompt. Only you see the preview.</figcaption>
+      </figure>
       <p>The window never takes keyboard focus, so a stray <kbd>Return</kbd> or <kbd>Space</kbd> can’t approve it. Click a button.</p>
       <p><strong>With the keyboard or VoiceOver:</strong> VoiceOver announces each prompt. The prompt’s buttons accept only real pointer clicks, so that no other app can approve on your behalf; instead, choose <strong>Go live for <em>App</em></strong> in the OffSight menu, or set a <a href="#settings-shortcuts">Go live shortcut</a>.</p>
       <p>If you don’t answer, the window closes itself after 30 seconds and the app keeps the placeholder. You can change this time in <a href="#settings-approvals">Settings › Approvals</a>.</p>
 
       <h3 id="daily-later">Go live later</h3>
       <p>Chose <strong>Keep placeholder</strong> and changed your mind? Open the OffSight menu and click <strong>Go live for <em>App</em> (this session)</strong>. The meeting app doesn’t need to restart its video.</p>
+      <figure>
+        <img src="images/menu-sessions.png" alt="The OffSight menu listing Photo Booth waiting for approval and QuickTime Player approved, with Go live and Close shutter commands" width="274">
+        <figcaption>The OffSight menu lists each app and its state, with a command for each.</figcaption>
+      </figure>
 
       <h3 id="daily-close">Close the shutter</h3>
       <ul>
@@ -314,7 +322,7 @@
 
       <h3 id="settings-general">General</h3>
       <ul>
-        <li><strong>Launch OffSight at login.</strong> On by default. Recommended.</li>
+        <li><strong>Launch OffSight at login.</strong> Off until you turn it on. Recommended.</li>
         <li><strong>Notify when an app goes live and when its session ends.</strong></li>
         <li><strong>Coloured status icon.</strong> Adds coloured badges to the menu bar icon.</li>
         <li><strong>Show Welcome Guide…</strong> walks through setup again; <strong>Check Setup…</strong> lists anything still missing (<a href="#setup-check">more</a>).</li>

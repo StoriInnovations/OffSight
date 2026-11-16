@@ -17,7 +17,7 @@ final class OnboardingModel: ObservableObject {
     @Published var extensionNeedsApproval = false
     @Published private(set) var cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
     @Published private(set) var notificationsAllowed: Bool?
-    @Published var launchAtLogin = true
+    @Published var launchAtLogin = false
     @Published private(set) var meetingApps: [MeetingAppGuide] = []
     /// Setup steps still missing, from `SetupCheck`.
     @Published var issues: [SetupIssue] = []

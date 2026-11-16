@@ -3,8 +3,8 @@ import OffSightCore
 import os
 import ServiceManagement
 
-/// "Launch at login" (UR-38). Offered pre-ticked on the last onboarding step, so it is on by
-/// default but only with the user's consent (Mac App Store guideline 2.4.5).
+/// "Launch at login" (UR-38). Offered unticked on the last onboarding step and in Settings: it is
+/// on only when the user turns it on (Mac App Store guideline 2.4.5(iii): a pre-ticked box was rejected).
 ///
 /// Implemented as a launch agent bundled in the app (Contents/Library/LaunchAgents) rather than
 /// a plain login item: launchd starts OffSight at login and also restarts it if it ever quits

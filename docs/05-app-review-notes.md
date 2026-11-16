@@ -31,7 +31,7 @@ Installing a TestFlight build replaces the copy in /Applications, including a De
 | Field | Value |
 |---|---|
 | Name | OffSight |
-| Subtitle (30 chars max) | A camera shutter, in software |
+| Subtitle (30 chars max) | A camera shutter, in software. **No "Mac", "macOS", "FaceTime" or other Apple terms in the name or subtitle**: the first submission was rejected under 5.2.5 for "Mac" in the subtitle (13 Nov 2026). |
 | Category | Utilities |
 | Privacy Policy URL | `https://storiinnovations.github.io/OffSight/privacy.html` (or the custom domain) |
 | Support URL | `https://storiinnovations.github.io/OffSight/support.html` |
@@ -78,13 +78,13 @@ Paste into **App Review Information › Notes**:
 >
 > Why the extension: a camera extension is Apple's supported way to provide a camera to other apps. OffSight relays the real camera through it only after the user approves each app for each call.
 >
-> Privacy: no data is collected and the app has no network entitlement. Video is never recorded or stored. Launch at login is offered as a pre-ticked option on the last welcome step (the user's choice), and is implemented as a launch agent so OffSight also restarts if it quits unexpectedly.
+> Privacy: no data is collected and the app has no network entitlement. Video is never recorded or stored. Launch at login is off by default. It is offered as an unticked option on the last welcome step and in Settings › General, and is only turned on if the user ticks it, and is implemented as a launch agent so OffSight also restarts if it quits unexpectedly.
 
 **Sign-in required:** No. **Demo account:** not applicable.
 
 ## Guidelines to keep in mind
 
-- **2.4.5 (Mac App Store):** sandboxed ✓; nothing installed outside the app except the system extension it embeds ✓; launch at login only with consent ✓ (onboarding).
+- **2.4.5 (Mac App Store):** sandboxed ✓; nothing installed outside the app except the system extension it embeds ✓; launch at login only with consent ✓ (unticked option in onboarding and Settings; the first submission was rejected for a pre-ticked box).
 - **5.1.1 (privacy):** camera use explained in the permission text and the welcome guide ✓; privacy policy URL ✓.
 - **2.3 (accurate metadata):** screenshots must show the real app.
 - **The App Store build shows the browser name only** for browser meetings; the tab or site name (UR-34a) is in the Homebrew build only, because it needs Apple Events access to browsers.

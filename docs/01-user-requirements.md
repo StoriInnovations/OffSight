@@ -159,7 +159,7 @@ Priority uses MoSCoW: **M** = Must, **S** = Should, **C** = Could, **W** = Won't
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | UR-37 | First run **must explain** what OffSight does, ask for any macOS permissions it needs (with a reason for each), and confirm that protection is active. | M |
-| UR-38 | OffSight **must offer "Launch at login"**, turned **on** by default. | M |
+| UR-38 | OffSight **must offer "Launch at login"** and recommend it, but it stays **off until the user turns it on** (Mac App Store guideline 2.4.5(iii); a pre-ticked default was rejected in review, 13 Nov 2026). | M |
 | UR-39 | Settings **must cover**: placeholder choice, physical camera source, keyboard shortcuts, notifications, grace period (within safe limits), and launch at login. | M |
 | UR-40 | OffSight **must not provide any way to exempt an app** from per-session approval: no allow-list and no "Always allow". This is excluded on purpose. | M |
 | UR-41 | The user **must be able to pause OffSight** (all apps get the live feed with no prompts) only through an explicit action with a time limit (for example, 1 hour). The menu bar must show a clear "Protection paused" state, and protection must resume automatically when the time limit ends. | C |
