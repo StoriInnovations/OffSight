@@ -20,7 +20,7 @@ Installing a TestFlight build replaces the copy in /Applications, including a De
 | Field | Value |
 |---|---|
 | Beta App Description | OffSight is a camera shutter in software: meeting apps see a "Camera off" picture until you approve them for the current call. |
-| What to Test | Choose OffSight Camera in your meeting apps (Zoom, Teams, Google Meet, Webex, Slack, FaceTime). Check that each app gets the placeholder until you click Go live, that Close all shutters (⌃⌥⌘O) works, and that the next call asks again. Report anything where an app sees live video without your approval. |
+| What to Test | Choose OffSight Camera in your meeting apps (Zoom, Teams, Google Meet, Webex, Slack or any other). Check that each app gets the placeholder until you click Go live, that Close all shutters (⌃⌥⌘O) works, and that the next call asks again. Report anything where an app sees live video without your approval. |
 | Feedback Email | the project's support address |
 | Privacy Policy URL | as in the table below |
 
@@ -45,7 +45,7 @@ Installing a TestFlight build replaces the copy in /Applications, including a De
 
 > OffSight is a camera shutter in software. Meeting apps see a “Camera off” picture until you say Go live, for that app, for that call. When the call ends, the shutter closes again on its own.
 >
-> • Choose OffSight Camera once in Zoom, Teams, Google Meet, Webex, Slack or FaceTime.
+> • Choose OffSight Camera once in Zoom, Teams, Google Meet, Webex, Slack or any others.
 > • When an app turns the camera on, OffSight asks you first, with a private preview only you can see.
 > • Approval lasts for one call. There is no “always allow”.
 > • Close every shutter at once from the menu bar or with a keyboard shortcut.
