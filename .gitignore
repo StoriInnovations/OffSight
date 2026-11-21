@@ -30,3 +30,6 @@ OffSight visual identity system.zip
 
 # Test runs (Tools/OffSightTest writes these to the working directory)
 offsight-test-report-*.md
+
+# Raw screenshot captures (the finished App Store screenshots are the final-*.png files)
+packaging/appstore-screenshots/captures-new/raw/

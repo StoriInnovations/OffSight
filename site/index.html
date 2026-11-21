@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OffSight — a software camera shutter for your Mac</title>
-<meta name="description" content="OffSight shows meeting apps a Camera off picture until you approve live video, per app, per call.">
+<meta name="description" content="OffSight shows meeting apps a Camera off picture until you approve live video, per app, per call. Free and open source, with no in-app purchases. On the Mac App Store.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -29,20 +29,87 @@
   <div class="wrap">
     <h1>A camera shutter, in software</h1>
     <p class="lead">Meeting apps see a “Camera off” picture until you say <strong>Go live</strong>, for that app, for that call. When the call ends, the shutter closes again on its own.</p>
+    <p class="cta">
+      <a class="button" href="https://apps.apple.com/us/app/offsight/id6821906917">Get OffSight on the Mac App Store</a>
+      <span class="meta-inline">Free · No in-app purchases · Open source · macOS 13 Ventura or later</span>
+    </p>
     <figure>
-      <img src="help/images/placeholder-camera-off.jpg" alt="The OffSight placeholder: a closed iris with the words Camera off, Protected by OffSight" width="640">
-      <figcaption>What other people see until you go live.</figcaption>
+      <img src="images/approval-prompt.jpg" alt="QuickTime Player shows the Camera off placeholder while OffSight asks: QuickTime Player wants to use your camera, with a private preview and the buttons Keep placeholder and Go live for this session" width="1600" height="1000">
+      <figcaption>An app turns on the camera: it gets the placeholder, and OffSight asks you, with a preview only you can see.</figcaption>
     </figure>
+
+    <h2>Why OffSight</h2>
+    <p>Recent Macs have no physical camera shutter. It is easy to join a call with the camera already on, or to have an app you forgot about switch it on. OffSight puts a shutter back: once a meeting app is set to use OffSight Camera, nothing live reaches it until you approve it, one call at a time.</p>
+
+    <h2>Free. Really.</h2>
+    <p>OffSight is <strong>free</strong>, and every feature is in the free version because there is no other version. <strong>No in-app purchases, no subscription, no premium tier, no ads, no account.</strong> The full source code is on <a href="https://github.com/StoriInnovations/OffSight">GitHub</a> under the MIT License, so you can read exactly what it does with your camera, or build it yourself.</p>
+
     <h2>How it works</h2>
     <ul>
-      <li>OffSight adds <strong>OffSight Camera</strong> to your Mac. Choose it once in Zoom, Teams, Meet, Webex, Slack or FaceTime.</li>
+      <li>OffSight adds <strong>OffSight Camera</strong> to your Mac. Choose it once as the camera in Zoom, Teams, Meet, Webex, Slack or FaceTime. Apps that stay on the real camera aren’t protected.</li>
       <li>When an app turns the camera on, it gets the placeholder, and OffSight asks you whether that app may see you, with a private preview only you can see.</li>
       <li>Approval lasts for one call. There is no “always allow”.</li>
       <li>If anything goes wrong, apps keep the placeholder. OffSight fails safe.</li>
       <li>Everything happens on your Mac. OffSight collects no data and has no network access.</li>
     </ul>
-    <p>Requires macOS 13 Ventura or later.</p>
+
+    <h2>See it in action</h2>
+    <div class="shots">
+      <figure>
+        <img src="images/placeholder-in-quicktime.jpg" alt="A video window showing the OffSight placeholder: a closed iris with the words Camera off, Protected by OffSight" width="1600" height="1000" loading="lazy">
+        <figcaption><strong>Shutter closed.</strong> Until you go live, every app sees the “Camera off” picture, not you.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/menu-two-sessions.jpg" alt="The OffSight menu listing Photo Booth waiting for approval and QuickTime Player approved, with Close all shutters and Pause protection" width="1600" height="1000" loading="lazy">
+        <figcaption><strong>Every app, at a glance.</strong> The menu bar shows which apps are asking or live. Go live, close one shutter, or close them all with ⌃⌥⌘O.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/settings-2.jpg" alt="OffSight Settings, Camera tab: live camera choice, placeholder choice of OffSight, My Image or Initials, and Video Effects for Live Video" width="1600" height="1000" loading="lazy">
+        <figcaption><strong>Your placeholder.</strong> Use the OffSight picture, your own image, or your initials. Pick which physical camera goes live.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/settings-1.jpg" alt="OffSight Settings, General tab: launch at login, notifications, coloured status icon, Show Welcome Guide and Check Setup" width="1600" height="1000" loading="lazy">
+        <figcaption><strong>Simple settings.</strong> Launch at login, notifications, a coloured status icon, and a setup check that lists anything still missing.</figcaption>
+      </figure>
+    </div>
+
+    <h2>Features</h2>
+    <ul>
+      <li><strong>Per-app, per-call approval.</strong> Each app asks separately, and every new camera session asks again.</li>
+      <li><strong>Private preview.</strong> Check your hair and background before anyone else sees you.</li>
+      <li><strong>Unanswered means no.</strong> A prompt you ignore closes on its own and the app keeps the placeholder.</li>
+      <li><strong>Close the shutter any time</strong> from the menu bar or with a global keyboard shortcut.</li>
+      <li><strong>Pause protection</strong> for a while when you want to, with the menu bar icon showing it.</li>
+      <li><strong>macOS video effects</strong> (Portrait, Background and others) apply to your live video, never to the placeholder.</li>
+      <li><strong>Works with the apps you use:</strong> Zoom, Microsoft Teams, Google Meet and other browser meetings, Webex, Slack, FaceTime, Photo Booth and more.</li>
+      <li><strong>Private by design.</strong> No accounts, no analytics, no network access.</li>
+      <li><strong>Free and open source.</strong> No in-app purchases, no premium features, no subscription. MIT License.</li>
+    </ul>
+
+    <h2>Under the hood</h2>
+    <p>macOS doesn’t let any app sit between other apps and the real camera, so OffSight can’t block or filter it. Instead it adds a second camera, <strong>OffSight Camera</strong>, that meeting apps can choose in place of the real one. All of the protection below applies to apps that use OffSight Camera.</p>
+    <p class="callout"><strong>The one thing you have to do:</strong> select OffSight Camera as the camera in each meeting app. An app left on your Mac’s real camera (FaceTime HD Camera, a USB webcam, your iPhone) bypasses OffSight completely: it isn’t asked, and it gets live video exactly as it would without OffSight. OffSight warns you when that happens, but it can’t stop it.</p>
+    <ul>
+      <li><strong>A virtual camera.</strong> OffSight Camera is a CoreMediaIO Camera Extension, Apple’s supported way to add a camera to macOS. It runs as its own sandboxed system process and always sends a steady 30 fps stream, so meeting apps never see a dead or broken camera.</li>
+      <li><strong>OffSight opens the real camera only when needed.</strong> The OffSight Camera extension never touches your physical camera; the menu bar app opens it only while you’re looking at the preview or an approved call is live. So when apps use OffSight Camera, the green light comes on only when you’ve chosen to be seen. (Other apps can still open the real camera directly; see below.)</li>
+      <li><strong>Two independent gates.</strong> The app decides who may go live; the extension enforces it on its own, frame by frame. The extension knows each app using it (process and code signature), and live frames carry a tag tied to that exact set of apps. If a new app joins, the tag stops matching on the very next frame and every app falls back to the placeholder until the newcomer is approved or leaves.</li>
+      <li><strong>Only OffSight can feed it.</strong> The extension accepts video only from OffSight itself, installed in your Applications folder. Nothing can read your camera through it, and no script, URL or shortcut can approve an app: only a real click or keypress on the prompt.</li>
+      <li><strong>Fail closed.</strong> If the app quits, crashes or stops sending frames, the extension switches to its built-in placeholder within a tenth of a second. Approvals live only in memory and are never saved, so nothing carries over to the next call or a restart.</li>
+      <li><strong>Back doors flagged, not blocked.</strong> If any app opens your physical camera directly instead of OffSight Camera, the menu bar icon switches to its unprotected state so you know. macOS gives OffSight no way to block that; switch the app to OffSight Camera to bring it under protection.</li>
+      <li><strong>Small and local.</strong> Written in Swift, sandboxed, with no network access and a single small third-party library (for keyboard shortcuts). The core approval logic is a separate, heavily unit-tested package.</li>
+    </ul>
+    <p>The full design is in the <a href="https://github.com/StoriInnovations/OffSight/blob/main/docs/02-architecture-and-implementation.md">architecture notes</a>.</p>
+
+    <h2>Get started</h2>
+    <ol>
+      <li>Install <a href="https://apps.apple.com/us/app/offsight/id6821906917">OffSight from the Mac App Store</a> and open it.</li>
+      <li>Follow the welcome guide: allow the OffSight camera extension and camera access.</li>
+      <li>In each meeting app, choose <strong>OffSight Camera</strong> as the camera.</li>
+    </ol>
+    <p>The <a href="help/index.html">Help</a> page walks through each step, with settings for every meeting app.</p>
+
     <div class="cards">
+      <a class="card" href="https://apps.apple.com/us/app/offsight/id6821906917"><strong>Mac App Store</strong><span>Free, with no in-app purchases.</span></a>
       <a class="card" href="help/index.html"><strong>Help</strong><span>Setup, meeting apps, everyday use, troubleshooting.</span></a>
       <a class="card" href="privacy.html"><strong>Privacy policy</strong><span>No data collected. Nothing leaves your Mac.</span></a>
       <a class="card" href="support.html"><strong>Support</strong><span>Open source, as is. How to report problems.</span></a>
